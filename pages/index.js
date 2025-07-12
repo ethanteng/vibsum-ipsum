@@ -8,6 +8,7 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [status, setStatus] = useState("");
 
+  // Submit prompt to /api/parse
   const handleSubmit = async () => {
     setStatus("Processing...");
     setResult(null);
@@ -15,11 +16,35 @@ export default function Home() {
     const res = await fetch("/api/parse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, platform })
+      body: JSON.stringify({ prompt })
     });
 
     const data = await res.json();
     console.log("🔥 API response:", data);
+
+    if (data.error) {
+      setStatus("Error: " + data.error);
+    } else {
+      setStatus("Ready to create!");
+      setResult(data.result);
+    }
+  };
+
+  // Create campaign in Mailchimp (or other platform)
+  const handleCreate = async () => {
+    setStatus(`Creating in ${platform}...`);
+
+    const res = await fetch("/api/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform,
+        canonical: result
+      })
+    });
+
+    const data = await res.json();
+    console.log("🔥 Create response:", data);
 
     if (data.error) {
       setStatus("Error: " + data.error);
@@ -51,7 +76,10 @@ export default function Home() {
         <div style={{ marginTop: "8px" }}>
           <label>
             Platform:&nbsp;
-            <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+            <select
+              value={platform}
+              onChange={(e) => setPlatform(e.target.value)}
+            >
               <option value="mailchimp">Mailchimp</option>
               <option value="klaviyo">Klaviyo</option>
               {/* Add more platforms here */}
@@ -60,7 +88,7 @@ export default function Home() {
         </div>
 
         <button onClick={handleSubmit} style={{ marginTop: "8px" }}>
-          Submit
+          Generate JSON
         </button>
 
         <p>{status}</p>
@@ -92,6 +120,23 @@ export default function Home() {
             />
           </div>
 
+          <button
+            onClick={handleCreate}
+            style={{
+              display: "block",
+              margin: "20px auto",
+              padding: "10px 20px",
+              background: "#4fc3f7",
+              color: "#000",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Create Campaign in {platform.charAt(0).toUpperCase() + platform.slice(1)}
+          </button>
+
           {result.campaignDetailsUrl && (
             <p style={{ textAlign: "center", marginTop: "12px" }}>
               <a
@@ -104,7 +149,7 @@ export default function Home() {
                   fontWeight: "bold"
                 }}
               >
-                View Campaign in Mailchimp
+                View Campaign in {platform.charAt(0).toUpperCase() + platform.slice(1)}
               </a>
             </p>
           )}
