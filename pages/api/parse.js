@@ -1,17 +1,30 @@
 import fetch from "node-fetch";
+import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
+import { normalizeForKlaviyo } from "@/lib/normalizeForKlaviyo"; // create this if needed
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { prompt } = req.body;
+  const { prompt, platform } = req.body;
 
   const systemPrompt = `
 You are a marketing workflow generator.
 Given a plain English prompt describing an email campaign,
-respond ONLY with a single valid JSON object and no other text.
-Make sure to include the opening and closing braces.
+respond ONLY with a single valid JSON object in this canonical schema:
+
+{
+  "campaign_name": "",
+  "subject_line": "",
+  "preview_text": "",
+  "from_name": "",
+  "reply_to": "",
+  "html_body": "",
+  "send_after_inactivity_days": 0
+}
+
+Make sure all keys are present.
 `;
 
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -40,23 +53,15 @@ Make sure to include the opening and closing braces.
   let text = data.choices[0].message.content.trim();
   console.log("🔍 RAW GPT OUTPUT >>>", JSON.stringify(text));
 
-  // Remove code fences if any
   if (text.startsWith("```")) {
     text = text.replace(/```[a-z]*\n?/i, "");
     text = text.replace(/```$/, "");
   }
 
-  let json;
-
+  let canonical;
   try {
     let parsed = JSON.parse(text);
-
-    if (typeof parsed === "string") {
-      console.log("Parsed first pass was string, parsing again...");
-      json = JSON.parse(parsed);
-    } else {
-      json = parsed;
-    }
+    canonical = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
   } catch (err) {
     return res.status(400).json({
       error: "Failed to parse JSON.",
@@ -65,5 +70,22 @@ Make sure to include the opening and closing braces.
     });
   }
 
-  return res.status(200).json({ result: json });
+  // Validate + normalize
+  let normalized;
+  try {
+    if (platform === "mailchimp") {
+      normalized = normalizeForMailchimp(canonical);
+    } else if (platform === "klaviyo") {
+      normalized = normalizeForKlaviyo(canonical);
+    } else {
+      throw new Error("Unsupported platform: " + platform);
+    }
+  } catch (err) {
+    return res.status(400).json({
+      error: "Invalid canonical output or normalization error: " + err.message,
+      raw: canonical
+    });
+  }
+
+  return res.status(200).json(normalized);
 }
