@@ -12,15 +12,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing platform or canonical data." });
   }
 
-  let normalized;
-  let campaignResponse;
-  let campaignPayload;
-  let contentPayload;
-
   try {
     if (platform === "mailchimp") {
-      normalized = normalizeForMailchimp(canonical);
-      ({ campaignPayload, contentPayload } = normalized);
+      const { campaignPayload, contentPayload } = normalizeForMailchimp(canonical);
 
       // Create the campaign
       const createRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`, {
@@ -37,10 +31,10 @@ export default async function handler(req, res) {
         throw new Error(`Mailchimp create campaign failed: ${errText}`);
       }
 
-      campaignResponse = await createRes.json();
-      console.log("✅ Created Mailchimp campaign:", campaignResponse.id);
+      const campaignResponse = await createRes.json();
+      console.log("✅ Created Mailchimp campaign:", campaignResponse);
 
-      // Set content
+      // Set the content
       const contentRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaignResponse.id}/content`, {
         method: "PUT",
         headers: {
@@ -55,7 +49,7 @@ export default async function handler(req, res) {
         throw new Error(`Mailchimp set content failed: ${errText}`);
       }
 
-      console.log("✅ Set content successfully");
+      console.log("✅ Set Mailchimp content successfully");
 
       return res.status(200).json({
         success: true,
@@ -65,16 +59,24 @@ export default async function handler(req, res) {
         campaignPayload,
         contentPayload
       });
+
     } else if (platform === "klaviyo") {
-      normalized = normalizeForKlaviyo(canonical);
+      const klaviyoPayload = normalizeForKlaviyo(canonical);
+
+      // TODO: actually create the campaign in Klaviyo here
+      console.log("✅ Normalized payload for Klaviyo:", klaviyoPayload);
+
       return res.status(200).json({
         success: true,
-        klaviyoPayload: normalized
+        klaviyoPayload
       });
+
     } else {
-      throw new Error("Unsupported platform: " + platform);
+      throw new Error(`Unsupported platform: ${platform}`);
     }
+
   } catch (err) {
+    console.error("❌ Create error:", err);
     return res.status(400).json({
       error: "Create error: " + err.message
     });

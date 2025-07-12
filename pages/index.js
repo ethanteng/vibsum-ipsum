@@ -5,18 +5,17 @@ import "react-json-pretty/themes/monikai.css";
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState("mailchimp");
-  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]); // array of { prompt, result }
+  const [selectedCanonical, setSelectedCanonical] = useState(null);
   const [status, setStatus] = useState("");
 
-  // Submit prompt to /api/parse
   const handleSubmit = async () => {
     setStatus("Processing...");
-    setResult(null);
 
     const res = await fetch("/api/parse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, platform, previous: selectedCanonical })
     });
 
     const data = await res.json();
@@ -25,32 +24,30 @@ export default function Home() {
     if (data.error) {
       setStatus("Error: " + data.error);
     } else {
-      setStatus("Ready to create!");
-      setResult(data.result);
+      setStatus("Done!");
+      // Prepend just the canonical result
+      setHistory((prev) => [{ prompt, result: data.result }, ...prev]);
+      setSelectedCanonical(data.result); // auto-select most recent
     }
   };
 
-  // Create campaign in Mailchimp (or other platform)
-  const handleCreate = async () => {
-    setStatus(`Creating in ${platform}...`);
+  const handleSelect = (result) => {
+    setSelectedCanonical(result);
+  };
 
+  const handleCreate = async (result) => {
+    setStatus("Creating in Mailchimp...");
     const res = await fetch("/api/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        platform,
-        canonical: result
-      })
+      body: JSON.stringify({ prompt, platform, canonical: result })
     });
-
     const data = await res.json();
-    console.log("🔥 Create response:", data);
-
     if (data.error) {
       setStatus("Error: " + data.error);
     } else {
-      setStatus("Done!");
-      setResult(data);
+      setStatus(`Created! View: ${data.campaignDetailsUrl}`);
+      window.open(data.campaignDetailsUrl, "_blank");
     }
   };
 
@@ -76,84 +73,65 @@ export default function Home() {
         <div style={{ marginTop: "8px" }}>
           <label>
             Platform:&nbsp;
-            <select
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-            >
+            <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
               <option value="mailchimp">Mailchimp</option>
               <option value="klaviyo">Klaviyo</option>
-              {/* Add more platforms here */}
             </select>
           </label>
         </div>
 
         <button onClick={handleSubmit} style={{ marginTop: "8px" }}>
-          Generate JSON
+          Submit
         </button>
 
         <p>{status}</p>
       </div>
 
-      {result && (
-        <>
-          <div
-            style={{
-              width: "90%",
-              maxWidth: "1200px",
-              margin: "20px auto",
-              border: "1px solid #333",
-              borderRadius: "4px",
-              background: "#1e1e1e",
-              padding: "12px",
-              overflowX: "auto",
-              maxHeight: "600px",
-              overflowY: "auto",
-              fontFamily: "monospace"
-            }}
-          >
-            <JSONPretty
-              data={result}
+      {history.length > 0 && (
+        <div style={{ maxWidth: "900px", margin: "20px auto" }}>
+          <h3>Generated Versions</h3>
+          {history.map((entry, index) => (
+            <div
+              key={index}
               style={{
-                fontSize: "14px",
-                lineHeight: "1.4"
+                border: "1px solid #333",
+                borderRadius: "4px",
+                background: "#1e1e1e",
+                padding: "12px",
+                marginBottom: "16px"
               }}
-            />
-          </div>
-
-          <button
-            onClick={handleCreate}
-            style={{
-              display: "block",
-              margin: "20px auto",
-              padding: "10px 20px",
-              background: "#4fc3f7",
-              color: "#000",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-          >
-            Create Campaign in {platform.charAt(0).toUpperCase() + platform.slice(1)}
-          </button>
-
-          {result.campaignDetailsUrl && (
-            <p style={{ textAlign: "center", marginTop: "12px" }}>
-              <a
-                href={result.campaignDetailsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+            >
+              <strong>Prompt:</strong> {entry.prompt}
+              <div
                 style={{
-                  color: "#4fc3f7",
-                  textDecoration: "none",
-                  fontWeight: "bold"
+                  marginTop: "8px",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  fontFamily: "monospace"
                 }}
               >
-                View Campaign in {platform.charAt(0).toUpperCase() + platform.slice(1)}
-              </a>
-            </p>
-          )}
-        </>
+                <JSONPretty
+                  data={entry.result}
+                  style={{
+                    fontSize: "14px",
+                    lineHeight: "1.4"
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: "8px" }}>
+                <button onClick={() => handleSelect(entry.result)}>
+                  {selectedCanonical === entry.result ? "✅ Selected" : "Select this Version"}
+                </button>
+                <button
+                  onClick={() => handleCreate(entry.result)}
+                  style={{ marginLeft: "8px" }}
+                >
+                  Create in Mailchimp
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </>
   );
