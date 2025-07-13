@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     if (platform === "mailchimp") {
-      const { campaignPayload, contentPayload } = normalizeForMailchimp(canonical);
+      const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(canonical);
 
       // Create the campaign
       const createRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`, {
@@ -51,11 +51,36 @@ export default async function handler(req, res) {
 
       console.log("✅ Set Mailchimp content successfully");
 
+      let schedulingStatus = "not_requested";
+
+      if (scheduled_time) {
+        console.log("⏰ Attempting to schedule for:", scheduled_time);
+        const scheduleRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaignResponse.id}/actions/schedule`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`
+          },
+          body: JSON.stringify({ schedule_time: scheduled_time })
+        });
+
+        if (scheduleRes.ok) {
+          schedulingStatus = "scheduled_successfully";
+          console.log("✅ Campaign scheduled successfully");
+        } else {
+          const errText = await scheduleRes.text();
+          console.warn("⚠️ Scheduling failed:", errText);
+          schedulingStatus = "schedule_failed";
+        }
+      }
+
       return res.status(200).json({
         success: true,
         mailchimpCampaignId: campaignResponse.id,
         campaignWebId: campaignResponse.web_id,
         campaignDetailsUrl: `https://${process.env.MAILCHIMP_DC}.admin.mailchimp.com/campaigns/edit?id=${campaignResponse.web_id}`,
+        scheduled_time_requested: !!scheduled_time,
+        schedulingStatus,
         campaignPayload,
         contentPayload
       });
@@ -63,7 +88,7 @@ export default async function handler(req, res) {
     } else if (platform === "klaviyo") {
       const klaviyoPayload = normalizeForKlaviyo(canonical);
 
-      // TODO: actually create the campaign in Klaviyo here
+      // TODO: Actually create the campaign in Klaviyo here
       console.log("✅ Normalized payload for Klaviyo:", klaviyoPayload);
 
       return res.status(200).json({

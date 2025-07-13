@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
+import { CanonicalSchema } from "@/lib/canonicalSchema";
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
-import { normalizeForKlaviyo } from "@/lib/normalizeForKlaviyo"; // create this if needed
+import { normalizeForKlaviyo } from "@/lib/normalizeForKlaviyo";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -10,25 +11,26 @@ export default async function handler(req, res) {
   const { prompt, platform, previous } = req.body;
 
   const systemPrompt = `
-You are a marketing workflow generator.
-Given a plain English prompt describing an email campaign, respond ONLY with a single valid JSON object in this canonical schema:
+  You are a marketing workflow generator.
+  Given a plain English prompt describing an email campaign, respond ONLY with a single valid JSON object in this canonical schema:
 
-{
-  "campaign_name": "",
-  "subject_line": "",
-  "preview_text": "",
-  "from_name": "",
-  "reply_to": "",
-  "html_body": "",
-  "send_after_inactivity_days": 0
-}
+  {
+    "campaign_name": "string (required, do not leave blank)",
+    "subject_line": "string (required, do not leave blank)",
+    "preview_text": "string",
+    "from_name": "string (required, do not leave blank)",
+    "reply_to": "valid email (required, do not leave blank)",
+    "html_body": "string (required, do not leave blank, should be full HTML)",
+    "scheduled_time": ISO 8601 timestamp in the future (e.g., "2025-07-12T09:45:00Z"). If you are not sure, or no specific time is requested, omit this key entirely.
+  }
 
-If a previous version is provided, start with that as your base and modify it only to address the new prompt.
-Make sure all keys are present.
-`;
+  Make sure all keys are present unless instructed to omit them. 
+  If you cannot confidently determine a valid *future* scheduled_time, **omit it**.
+  `;
 
-  // Compose messages dynamically
-  const messages = [{ role: "system", content: systemPrompt }];
+  const messages = [
+    { role: "system", content: systemPrompt },
+  ];
 
   if (previous) {
     messages.push({
@@ -42,7 +44,6 @@ Make sure all keys are present.
     content: prompt
   });
 
-  // Call OpenAI
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -74,35 +75,26 @@ Make sure all keys are present.
   try {
     const parsed = JSON.parse(text);
     canonical = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
+
+    // Validate here
+    CanonicalSchema.parse(canonical);
   } catch (err) {
     return res.status(400).json({
-      error: "Failed to parse JSON.",
+      error: "Failed to parse or validate JSON.",
       raw: text,
       stack: err.toString()
     });
   }
 
-  // Validate and normalize
-  let normalized;
-  try {
-    if (platform === "mailchimp") {
-      normalized = normalizeForMailchimp(canonical);
-    } else if (platform === "klaviyo") {
-      normalized = normalizeForKlaviyo(canonical);
-    } else {
-      normalized = {};
-    }
-  } catch (err) {
-    return res.status(400).json({
-      error: "Normalization error: " + err.message,
-      raw: canonical
-    });
+  // If no scheduled_time, set to 24h from now
+  if (!canonical.scheduled_time) {
+    const defaultTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    canonical.scheduled_time = defaultTime;
   }
 
-  // Return only parsed + normalized JSON
+  // Return canonical output with resolved scheduled_time for preview
   return res.status(200).json({
     success: true,
-    result: canonical,
-    normalized
+    result: canonical
   });
 }

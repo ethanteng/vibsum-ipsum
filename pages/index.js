@@ -1,6 +1,4 @@
 import { useState } from "react";
-import JSONPretty from "react-json-pretty";
-import "react-json-pretty/themes/monikai.css";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -25,9 +23,9 @@ export default function Home() {
       setStatus("Error: " + data.error);
     } else {
       setStatus("Done!");
-      // Prepend just the canonical result
       setHistory((prev) => [{ prompt, result: data.result }, ...prev]);
-      setSelectedCanonical(data.result); // auto-select most recent
+      setSelectedCanonical(data.result);
+      setPrompt("");
     }
   };
 
@@ -40,13 +38,23 @@ export default function Home() {
     const res = await fetch("/api/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, platform, canonical: result })
+      body: JSON.stringify({ platform, canonical: result })
     });
     const data = await res.json();
     if (data.error) {
       setStatus("Error: " + data.error);
     } else {
-      setStatus(`Created! View: ${data.campaignDetailsUrl}`);
+      let message = "";
+      if (data.schedulingStatus === "scheduled_successfully") {
+        message = "Created and scheduled!";
+      } else if (data.schedulingStatus === "schedule_failed") {
+        message = "Created, but scheduling failed—you need to manually set the send time.";
+      } else if (data.schedulingStatus === "not_requested") {
+        message = "Created as draft—no scheduled time set.";
+      } else {
+        message = "Created!";
+      }
+      setStatus(`${message} View: ${data.campaignDetailsUrl}`);
       window.open(data.campaignDetailsUrl, "_blank");
     }
   };
@@ -102,22 +110,47 @@ export default function Home() {
               }}
             >
               <strong>Prompt:</strong> {entry.prompt}
-              <div
-                style={{
+
+              <div style={{ fontFamily: "sans-serif", fontSize: "14px", lineHeight: "1.6", marginTop: "8px" }}>
+                <p><strong>Campaign Name:</strong> {entry.result.campaign_name}</p>
+                <p><strong>Subject Line:</strong> {entry.result.subject_line}</p>
+                <p><strong>Preview Text:</strong> {entry.result.preview_text || "(none)"}</p>
+                <p><strong>From:</strong> {entry.result.from_name} &lt;{entry.result.reply_to}&gt;</p>
+                {entry.result.scheduled_time && (
+                  <p><strong>Scheduled Time:</strong> {new Date(entry.result.scheduled_time).toLocaleString()}</p>
+                )}
+                <p><strong>HTML Preview:</strong></p>
+                <div style={{
+                  border: "1px solid #555",
                   marginTop: "8px",
                   maxHeight: "400px",
-                  overflowY: "auto",
-                  fontFamily: "monospace"
-                }}
-              >
-                <JSONPretty
-                  data={entry.result}
-                  style={{
-                    fontSize: "14px",
-                    lineHeight: "1.4"
-                  }}
-                />
+                  overflow: "auto",
+                  background: "#fff"
+                }}>
+                  <iframe
+                    srcDoc={entry.result.html_body}
+                    style={{
+                      width: "100%",
+                      height: "400px",
+                      border: "none"
+                    }}
+                    sandbox=""
+                  />
+                </div>
+                <details style={{ marginTop: "12px" }}>
+                  <summary style={{ cursor: "pointer" }}>Show raw JSON</summary>
+                  <pre style={{
+                    fontSize: "12px",
+                    background: "#222",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    overflowX: "auto"
+                  }}>
+                    {JSON.stringify(entry.result, null, 2)}
+                  </pre>
+                </details>
               </div>
+
               <div style={{ marginTop: "8px" }}>
                 <button onClick={() => handleSelect(entry.result)}>
                   {selectedCanonical === entry.result ? "✅ Selected" : "Select this Version"}
