@@ -14,7 +14,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-json-pretty": "^2.2.0",
-    "zod": "^4.0.5"
+    "zod": "^3.22.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

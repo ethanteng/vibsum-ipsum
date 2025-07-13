@@ -1,11 +1,15 @@
 import { useState } from "react";
+import JSONPretty from "react-json-pretty";
+import "react-json-pretty/themes/monikai.css";
+import EmailPreview from "@/components/EmailPreview";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [platform, setPlatform] = useState("mailchimp");
-  const [history, setHistory] = useState([]); // array of { prompt, result }
+  const [history, setHistory] = useState([]);
   const [selectedCanonical, setSelectedCanonical] = useState(null);
   const [status, setStatus] = useState("");
+  const [showRawJson, setShowRawJson] = useState(false);
 
   const handleSubmit = async () => {
     setStatus("Processing...");
@@ -68,7 +72,7 @@ export default function Home() {
           fontFamily: "sans-serif"
         }}
       >
-        <h2>Prompt to JSON</h2>
+        <h2>Prompt to Email Campaign</h2>
 
         <textarea
           rows={6}
@@ -111,46 +115,63 @@ export default function Home() {
             >
               <strong>Prompt:</strong> {entry.prompt}
 
-              <div style={{ fontFamily: "sans-serif", fontSize: "14px", lineHeight: "1.6", marginTop: "8px" }}>
-                <p><strong>Campaign Name:</strong> {entry.result.campaign_name}</p>
-                <p><strong>Subject Line:</strong> {entry.result.subject_line}</p>
-                <p><strong>Preview Text:</strong> {entry.result.preview_text || "(none)"}</p>
-                <p><strong>From:</strong> {entry.result.from_name} &lt;{entry.result.reply_to}&gt;</p>
-                {entry.result.scheduled_time && (
-                  <p><strong>Scheduled Time:</strong> {new Date(entry.result.scheduled_time).toLocaleString()}</p>
-                )}
-                <p><strong>HTML Preview:</strong></p>
-                <div style={{
-                  border: "1px solid #555",
-                  marginTop: "8px",
-                  maxHeight: "400px",
-                  overflow: "auto",
-                  background: "#fff"
-                }}>
-                  <iframe
-                    srcDoc={entry.result.html_body}
-                    style={{
-                      width: "100%",
-                      height: "400px",
-                      border: "none"
-                    }}
-                    sandbox=""
-                  />
+              {/* Visual email preview */}
+              {entry.result.html_body && (
+                <div style={{ marginTop: "12px" }}>
+                  <EmailPreview html={entry.result.html_body} />
                 </div>
-                <details style={{ marginTop: "12px" }}>
-                  <summary style={{ cursor: "pointer" }}>Show raw JSON</summary>
-                  <pre style={{
-                    fontSize: "12px",
-                    background: "#222",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    overflowX: "auto"
-                  }}>
-                    {JSON.stringify(entry.result, null, 2)}
-                  </pre>
-                </details>
+              )}
+
+              {/* Template sections display */}
+              {entry.result.sections && Object.keys(entry.result.sections).length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <strong>Template Sections:</strong>
+                  {Object.entries(entry.result.sections).map(([key, value]) => (
+                    <div
+                      key={key}
+                      style={{
+                        marginTop: "6px",
+                        padding: "8px",
+                        background: "#2c2c2c",
+                        borderRadius: "4px"
+                      }}
+                    >
+                      <strong>{key}</strong>
+                      <div style={{ marginTop: "4px" }}>
+                        <EmailPreview html={value} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Toggle JSON */}
+              <div style={{ marginTop: "8px" }}>
+                <button onClick={() => setShowRawJson(!showRawJson)}>
+                  {showRawJson ? "Hide JSON" : "Show JSON"}
+                </button>
               </div>
 
+              {showRawJson && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    maxHeight: "400px",
+                    overflowY: "auto",
+                    fontFamily: "monospace"
+                  }}
+                >
+                  <JSONPretty
+                    data={entry.result}
+                    style={{
+                      fontSize: "14px",
+                      lineHeight: "1.4"
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Action buttons */}
               <div style={{ marginTop: "8px" }}>
                 <button onClick={() => handleSelect(entry.result)}>
                   {selectedCanonical === entry.result ? "✅ Selected" : "Select this Version"}
