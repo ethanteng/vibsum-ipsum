@@ -50,11 +50,10 @@ export default function Home() {
         if (r.unresolvedTags?.length) {
           warnings.push(`Unresolved Tags: ${r.unresolvedTags.join(", ")}`);
         }
-
         return [
           `${ch}: ${r.status || "created"}`,
           r.url ? `URL: ${r.url}` : null,
-          warnings.length ? `⚠️ ${warnings.join("; ")}` : null
+          warnings.length ? `⚠️ ${warnings.join("; ")}` : null,
         ]
           .filter(Boolean)
           .join(" | ");
@@ -98,7 +97,15 @@ export default function Home() {
             >
               <strong>Prompt:</strong> {prompt}
 
-              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* Mailchimp */}
                 {result.channels.includes("mailchimp") && (
                   <div style={{ flex: 1, minWidth: 300 }}>
                     <h4>Mailchimp</h4>
@@ -112,10 +119,10 @@ export default function Home() {
                     </p>
                     {result.mailchimp.audience && (
                       <p>
-                        <strong>Segment:</strong>{" "}
+                        <strong>Segments:</strong>{" "}
                         {result.mailchimp.audience.segments?.join(", ") || "None"}
                         <br />
-                        <strong>Tag:</strong>{" "}
+                        <strong>Tags:</strong>{" "}
                         {result.mailchimp.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
@@ -123,15 +130,21 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Intercom */}
                 {result.channels.includes("intercom") && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 300 }}>
                     <h4>Intercom</h4>
+                    {result.intercom.news_title && (
+                      <p>
+                        <strong>News Title:</strong> {result.intercom.news_title}
+                      </p>
+                    )}
                     {result.intercom.audience && (
-                      <p style={{ marginTop: 8 }}>
-                        <strong>Segment:</strong>{" "}
+                      <p>
+                        <strong>Segments:</strong>{" "}
                         {result.intercom.audience.segments?.join(", ") || "None"}
                         <br />
-                        <strong>Tag:</strong>{" "}
+                        <strong>Tags:</strong>{" "}
                         {result.intercom.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
@@ -141,6 +154,7 @@ export default function Home() {
                         background: "#f9f9f9",
                         padding: "12px",
                         borderRadius: "4px",
+                        marginTop: 8,
                       }}
                     >
                       <ReactMarkdown>{result.intercom.in_app_message_markdown}</ReactMarkdown>
@@ -161,18 +175,18 @@ export default function Home() {
                     </button>
                     <div style={{ marginTop: 8, display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <a
-                        href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <button>Create New Post</button>
-                      </a>
-                      <a
                         href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/banners/new`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <button>Create New Banner</button>
+                        <button>Start New Banner</button>
+                      </a>
+                      <a
+                        href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <button>Start New Post</button>
                       </a>
                     </div>
                   </div>
@@ -197,13 +211,19 @@ export default function Home() {
                     Create in Mailchimp
                   </button>
                 )}
+                {result.channels.includes("intercom") && (
+                  <button
+                    onClick={() => handleCreate(result, ["intercom"])}
+                  >
+                    Create in Intercom
+                  </button>
+                )}
                 <button
-                  style={{ marginLeft: 8 }}
                   onClick={() => setSelected(result)}
                   disabled={selected === result}
                 >
                   {selected === result
-                    ? "✅ Selected for Refinement"
+                    ? "✅ Select This Prompt"
                     : "Select for Refinement"}
                 </button>
               </div>

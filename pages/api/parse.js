@@ -32,6 +32,7 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
     }
   },
   "intercom": {
+    "news_title": "string (required)",
     "in_app_message_markdown": "string (markdown formatting supported)",
     "audience": {
       "segments": ["Segment Name"],

@@ -1,6 +1,7 @@
 // pages/api/create.js
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
+import { createIntercomNewsItem } from "@/lib/createIntercomNewsItem";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -87,6 +88,25 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error("Mailchimp error:", err);
       results.mailchimp = { error: err.message };
+    }
+  }
+
+  // INTERCOM NEWS
+  if (channels.includes("intercom")) {
+    try {
+      const created = await createIntercomNewsItem({
+        canonical,
+        apiKey: process.env.INTERCOM_API_KEY,
+        appId: process.env.NEXT_PUBLIC_INTERCOM_APP_ID,
+      });
+
+      results.intercom_news = {
+        status: "created",
+        url: created.url,
+      };
+    } catch (err) {
+      console.error("Intercom News error:", err);
+      results.intercom_news = { error: err.message };
     }
   }
 
