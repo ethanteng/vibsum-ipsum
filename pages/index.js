@@ -41,13 +41,26 @@ export default function Home() {
     if (data.error) {
       setStatus("Error: " + data.error);
     } else {
-      const msgs = Object.entries(data.results)
-        .map(
-          ([ch, r]) =>
-            `${ch}: ${r.status}${r.url ? ` (${r.url})` : ""}`
-        )
-        .join(" | ");
-      setStatus(`Created: ${msgs}`);
+      const messages = Object.entries(data.results).map(([ch, r]) => {
+        const warnings = [];
+        if (r.unresolvedSegments?.length) {
+          warnings.push(`Unresolved Segments: ${r.unresolvedSegments.join(", ")}`);
+        }
+        if (r.unresolvedTags?.length) {
+          warnings.push(`Unresolved Tags: ${r.unresolvedTags.join(", ")}`);
+        }
+
+        return [
+          `${ch}: ${r.status || "created"}`,
+          r.url ? `URL: ${r.url}` : null,
+          warnings.length ? `⚠️ ${warnings.join("; ")}` : null
+        ]
+          .filter(Boolean)
+          .join(" | ");
+      });
+
+      setStatus(`Created:\n${messages.join("\n")}`);
+
       Object.values(data.results).forEach((r) => {
         if (r.url) window.open(r.url, "_blank");
       });
@@ -67,7 +80,7 @@ export default function Home() {
       <button onClick={handleSubmit} style={{ marginTop: 8 }}>
         Submit
       </button>
-      <p>{status}</p>
+      <pre style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>{status}</pre>
 
       {history.length > 0 && (
         <>
