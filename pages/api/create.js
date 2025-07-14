@@ -1,79 +1,72 @@
 // pages/api/create.js
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
+import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
 
-  const { platform, canonical } = req.body;
-  if (!platform || !canonical?.html_body) {
-    return res.status(400).json({ error: "Missing platform or html_body." });
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { canonical, channels } = req.body;
+  const results = {};
+
   try {
-    if (platform === "mailchimp") {
-      const campaignRes = await fetch(
-        `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "regular",
-            recipients: { list_id: process.env.MAILCHIMP_LIST_ID },
-            settings: {
-              subject_line: canonical.subject_line,
-              preview_text: canonical.preview_text,
-              from_name: canonical.from_name,
-              reply_to: canonical.reply_to,
-              title: canonical.campaign_name,
-            },
-          }),
-        }
-      );
-      if (!campaignRes.ok) throw new Error(await campaignRes.text());
-      const campaign = await campaignRes.json();
+    if (channels.includes("mailchimp")) {
+      const resolved = await resolveMailchimpTargets(canonical.mailchimp.audience);
 
-      const contentRes = await fetch(
-        `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaign.id}/content`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ html: canonical.html_body }),
-        }
-      );
-      if (!contentRes.ok) throw new Error(await contentRes.text());
+      const { campaignPayload, contentPayload, scheduled_time } =
+        normalizeForMailchimp(canonical, resolved);
 
-      let scheduleMsg = "Created as draft";
-      if (canonical.scheduled_time) {
-        const scheduleRes = await fetch(
-          `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaign.id}/actions/schedule`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ schedule_time: canonical.scheduled_time }),
-          }
-        );
-        scheduleRes.ok
-          ? (scheduleMsg = "Scheduled for " + canonical.scheduled_time)
-          : (scheduleMsg = "Created but failed to schedule");
+      const createRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+        },
+        body: JSON.stringify(campaignPayload),
+      });
+
+      if (!createRes.ok) {
+        throw new Error(`Mailchimp create failed: ${await createRes.text()}`);
       }
 
-      return res.status(200).json({
-        message: scheduleMsg,
-        url: `https://${process.env.MAILCHIMP_DC}.admin.mailchimp.com/campaigns/edit?id=${campaign.web_id}`,
+      const campaign = await createRes.json();
+
+      const contentRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaign.id}/content`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+        },
+        body: JSON.stringify(contentPayload),
       });
+
+      if (!contentRes.ok) {
+        throw new Error(`Mailchimp content failed: ${await contentRes.text()}`);
+      }
+
+      const scheduleRes = await fetch(`https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${campaign.id}/actions/schedule`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+        },
+        body: JSON.stringify({ schedule_time: scheduled_time }),
+      });
+
+      results.mailchimp = {
+        status: scheduleRes.ok ? "scheduled" : "created_unscheduled",
+        url: `https://${process.env.MAILCHIMP_DC}.admin.mailchimp.com/campaigns/edit?id=${campaign.web_id}`,
+      };
     }
 
-    // stub for Klaviyo
-    res.status(200).json({ message: "Klaviyo not implemented yet" });
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({ error: e.message });
+    if (channels.includes("intercom")) {
+      results.intercom = { status: "not yet implemented" };
+    }
+
+    return res.status(200).json({ success: true, results });
+  } catch (err) {
+    console.error("❌ Create error:", err);
+    return res.status(400).json({ error: "Create error: " + err.message });
   }
 }
