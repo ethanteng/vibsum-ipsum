@@ -32,7 +32,7 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
     }
   },
   "intercom": {
-    "in_app_message": "string",
+    "in_app_message_markdown": "string (markdown formatting supported)",
     "audience": {
       "segments": ["Segment Name"],
       "tags": ["Tag Name"]
@@ -45,7 +45,9 @@ Important rules:
    - Only modify the channel(s) explicitly mentioned in the prompt.
    - If no channels are mentioned, update all channels.
 - Never invent fields not in this schema.
+- For intercom.in_app_message_markdown, include markdown headings, bold, lists, and links if appropriate.
 `;
+
 
   const messages = [
     { role: "system", content: systemPrompt },

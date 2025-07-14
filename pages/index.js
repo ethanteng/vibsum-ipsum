@@ -3,6 +3,7 @@ import { useState } from "react";
 import JSONPretty from "react-json-pretty";
 import "react-json-pretty/themes/monikai.css";
 import EmailPreview from "@/components/EmailPreview";
+import ReactMarkdown from "react-markdown";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -69,7 +70,7 @@ export default function Home() {
 
   return (
     <div style={{ fontFamily: "sans-serif", maxWidth: 1000, margin: "40px auto" }}>
-      <h2>Prompt to Multi-Channel Campaign</h2>
+      <h2>Create your multi-channel campaign</h2>
       <textarea
         rows={4}
         style={{ width: "100%" }}
@@ -101,49 +102,59 @@ export default function Home() {
                 {result.channels.includes("mailchimp") && (
                   <div style={{ flex: 1, minWidth: 300 }}>
                     <h4>Mailchimp</h4>
-                    <EmailPreview html={result.mailchimp.html_body} />
                     <p>
                       <strong>Subject:</strong> {result.mailchimp.subject_line}
                       <br />
                       <strong>From:</strong> {result.mailchimp.from_name} ({result.mailchimp.reply_to})
                       <br />
                       <strong>Scheduled:</strong>{" "}
-                      {result.mailchimp.scheduled_time || "(default 24h)"}
+                      {result.mailchimp.scheduled_time || "(default: 24 hours in the future)"}
                     </p>
                     {result.mailchimp.audience && (
                       <p>
-                        <strong>Segments:</strong>{" "}
+                        <strong>Segment:</strong>{" "}
                         {result.mailchimp.audience.segments?.join(", ") || "None"}
                         <br />
-                        <strong>Tags:</strong>{" "}
+                        <strong>Tag:</strong>{" "}
                         {result.mailchimp.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
+                    <EmailPreview html={result.mailchimp.html_body} />
                   </div>
                 )}
 
                 {result.channels.includes("intercom") && (
-                  <div style={{ flex: 1, minWidth: 300 }}>
+                  <div style={{ flex: 1 }}>
                     <h4>Intercom</h4>
-                    <textarea
-                      readOnly
-                      value={result.intercom.in_app_message}
-                      style={{ width: "100%", height: 150, fontFamily: "monospace" }}
-                    />
                     {result.intercom.audience && (
                       <p style={{ marginTop: 8 }}>
-                        <strong>Recommended Segments:</strong>{" "}
+                        <strong>Segment:</strong>{" "}
                         {result.intercom.audience.segments?.join(", ") || "None"}
                         <br />
-                        <strong>Recommended Tags:</strong>{" "}
+                        <strong>Tag:</strong>{" "}
                         {result.intercom.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
+                    <div
+                      style={{
+                        border: "1px solid #ddd",
+                        background: "#f9f9f9",
+                        padding: "12px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      <ReactMarkdown>{result.intercom.in_app_message_markdown}</ReactMarkdown>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={result.intercom.in_app_message_markdown}
+                      style={{ width: "100%", height: 150, marginTop: 8 }}
+                    />
                     <button
                       style={{ marginTop: 8 }}
                       onClick={() => {
-                        navigator.clipboard.writeText(result.intercom.in_app_message);
-                        setStatus("✅ Copied Intercom content to clipboard!");
+                        navigator.clipboard.writeText(result.intercom.in_app_message_markdown);
+                        alert("✅ Copied Intercom message to clipboard!");
                       }}
                     >
                       Copy to Clipboard
