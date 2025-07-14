@@ -1,6 +1,7 @@
 // pages/api/create.js
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
+import { createIntercomCampaign } from "@/lib/createIntercomCampaign";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
 
   const results = {};
 
+  // MAILCHIMP
   if (channels.includes("mailchimp")) {
     try {
       const {
@@ -96,6 +98,25 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error("Mailchimp error:", err);
       results.mailchimp = { error: err.message };
+    }
+  }
+
+  // INTERCOM
+  if (channels.includes("intercom")) {
+    try {
+      const created = await createIntercomCampaign({
+        canonical,
+        apiKey: process.env.INTERCOM_API_KEY,
+        appId: process.env.INTERCOM_APP_ID
+      });
+
+      results.intercom = {
+        status: "created",
+        url: created.url
+      };
+    } catch (err) {
+      console.error("Intercom error:", err);
+      results.intercom = { error: err.message };
     }
   }
 
