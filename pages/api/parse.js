@@ -12,59 +12,53 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing prompt." });
   }
 
-const systemPrompt = `
-  You are a multi-channel marketing workflow generator.
-  Given a plain English prompt describing a campaign, respond ONLY with a single JSON object matching this exact canonical schema.
+  const systemPrompt = `
+You are a multi-channel marketing workflow generator.
+Given a plain English prompt describing a campaign or refinements, respond ONLY with a single JSON object matching this canonical schema:
 
-  IMPORTANT: Your response must EXACTLY follow this structure, with nested objects as shown. Never omit required nested objects (e.g., "mailchimp", "intercom") if their channel is selected in "channels".
-
-  Example output format:
-
-  {
-    "campaign_name": "Example Campaign",
-    "channels": ["mailchimp", "intercom"],
-    "mailchimp": {
-      "subject_line": "Exciting News!",
-      "preview_text": "Check out our latest update",
-      "from_name": "Your Company",
-      "reply_to": "team@example.com",
-      "html_body": "<html><body><h1>Exciting News!</h1><p>Details here...</p></body></html>",
-      "scheduled_time": "2025-07-25T17:00:00Z",
-      "audience": {
-        "segments": ["Segment A", "Segment B"],
-        "tags": ["VIP", "Newsletter"]
-      }
-    },
-    "intercom": {
-      "in_app_message": "Check out our exciting new feature!",
-      "scheduled_time": "2025-07-25T17:00:00Z",
-      "audience": {
-        "segments": ["Active Users"],
-        "tags": ["Beta Tester"]
-      }
+{
+  "campaign_name": "string (required)",
+  "channels": ["mailchimp", "intercom"], // at least one
+  "mailchimp": {
+    "subject_line": "string",
+    "preview_text": "string",
+    "from_name": "string",
+    "reply_to": "valid email",
+    "html_body": "string",
+    "scheduled_time": "ISO 8601 timestamp or omit",
+    "audience": {
+      "segments": ["Segment Name"],
+      "tags": ["Tag Name"]
+    }
+  },
+  "intercom": {
+    "in_app_message": "string",
+    "scheduled_time": "ISO 8601 timestamp or omit",
+    "audience": {
+      "segments": ["Segment Name"],
+      "tags": ["Tag Name"]
     }
   }
+}
 
-  Rules:
-  - If a channel is included in "channels", its corresponding object (mailchimp or intercom) must be present and populated.
-  - Never include any fields that are not part of this schema.
-  - If a field is not specified in the prompt, you must still return it with example or default values.
-  - All datetime fields must be valid ISO 8601 strings in the future, or omitted.
-
-  Return ONLY the JSON object, no commentary.
+Important rules:
+- When a previous version is provided:
+   - Only modify the channel(s) explicitly mentioned in the prompt.
+   - If no channels are mentioned, modify all channels.
+   - Always keep all channels that were present in the previous version, even if they are not being modified.
+   - Never remove or omit any channels unless the prompt explicitly says to remove them.
+- If no previous version is provided, create all specified channels from scratch.
+- Never invent fields not in this schema.
 `;
 
   const messages = [
     { role: "system", content: systemPrompt },
     ...(previous
       ? [
-          {
-            role: "user",
-            content: `Here is the previous version to build on:\n\n${JSON.stringify(previous, null, 2)}`,
-          },
+          { role: "assistant", content: JSON.stringify(previous, null, 2) },
+          { role: "user", content: prompt }
         ]
-      : []),
-    { role: "user", content: prompt },
+      : [{ role: "user", content: prompt }])
   ];
 
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
