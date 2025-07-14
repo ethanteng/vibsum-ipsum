@@ -33,7 +33,6 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
   },
   "intercom": {
     "in_app_message": "string",
-    "scheduled_time": "ISO 8601 timestamp or omit",
     "audience": {
       "segments": ["Segment Name"],
       "tags": ["Tag Name"]
@@ -44,10 +43,7 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
 Important rules:
 - When a previous version is provided:
    - Only modify the channel(s) explicitly mentioned in the prompt.
-   - If no channels are mentioned, modify all channels.
-   - Always keep all channels that were present in the previous version, even if they are not being modified.
-   - Never remove or omit any channels unless the prompt explicitly says to remove them.
-- If no previous version is provided, create all specified channels from scratch.
+   - If no channels are mentioned, update all channels.
 - Never invent fields not in this schema.
 `;
 
@@ -55,10 +51,10 @@ Important rules:
     { role: "system", content: systemPrompt },
     ...(previous
       ? [
-          { role: "assistant", content: JSON.stringify(previous, null, 2) },
-          { role: "user", content: prompt }
+          { role: "assistant", content: JSON.stringify(previous) },
+          { role: "user", content: prompt },
         ]
-      : [{ role: "user", content: prompt }])
+      : [{ role: "user", content: prompt }]),
   ];
 
   const completion = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -79,7 +75,32 @@ Important rules:
 
   try {
     const parsed = JSON.parse(rawText);
-    const validated = CanonicalSchema.parse(parsed);
+
+    // If previous exists, merge intelligently
+    let merged;
+    if (previous) {
+      merged = {
+        ...previous,
+        ...parsed,
+        mailchimp:
+          parsed.mailchimp !== undefined
+            ? parsed.mailchimp
+            : previous.mailchimp,
+        intercom:
+          parsed.intercom !== undefined
+            ? parsed.intercom
+            : previous.intercom,
+      };
+
+      // Channels array should reflect the *currently included* channels
+      merged.channels = [];
+      if (merged.mailchimp) merged.channels.push("mailchimp");
+      if (merged.intercom) merged.channels.push("intercom");
+    } else {
+      merged = parsed;
+    }
+
+    const validated = CanonicalSchema.parse(merged);
     return res.status(200).json({ success: true, result: validated });
   } catch (err) {
     console.error("❌ Parse error:", err, "\nRAW:", rawText);

@@ -1,7 +1,6 @@
 // pages/api/create.js
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
-import { createIntercomCampaign } from "@/lib/createIntercomCampaign";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -16,7 +15,6 @@ export default async function handler(req, res) {
 
   const results = {};
 
-  // MAILCHIMP
   if (channels.includes("mailchimp")) {
     try {
       const {
@@ -31,43 +29,39 @@ export default async function handler(req, res) {
 
       const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(canonical);
 
-      // Attach resolved audience targeting
       if (resolvedSegments.length > 0) {
         campaignPayload.recipients.segment_opts = {
-          saved_segment_id: resolvedSegments[0].id
+          saved_segment_id: resolvedSegments[0].id,
         };
       }
 
-      // Create campaign
       const createRes = await fetch(
         `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`
+            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
           },
-          body: JSON.stringify(campaignPayload)
+          body: JSON.stringify(campaignPayload),
         }
       );
       if (!createRes.ok) throw new Error(`Create error: ${await createRes.text()}`);
       const created = await createRes.json();
 
-      // Set content
       const contentRes = await fetch(
         `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${created.id}/content`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`
+            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
           },
-          body: JSON.stringify(contentPayload)
+          body: JSON.stringify(contentPayload),
         }
       );
       if (!contentRes.ok) throw new Error(`Content error: ${await contentRes.text()}`);
 
-      // Schedule
       let scheduleStatus = "not_requested";
       if (scheduled_time) {
         const schedRes = await fetch(
@@ -76,47 +70,23 @@ export default async function handler(req, res) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`
+              Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
             },
-            body: JSON.stringify({ schedule_time: scheduled_time })
+            body: JSON.stringify({ schedule_time: scheduled_time }),
           }
         );
-        if (schedRes.ok) {
-          scheduleStatus = "scheduled_successfully";
-        } else {
-          const schedText = await schedRes.text();
-          scheduleStatus = `schedule_failed: ${schedText}`;
-        }
+        scheduleStatus = schedRes.ok ? "scheduled_successfully" : "schedule_failed";
       }
 
       results.mailchimp = {
         status: scheduleStatus,
         url: `https://${process.env.MAILCHIMP_DC}.admin.mailchimp.com/campaigns/edit?id=${created.web_id}`,
         unresolvedSegments,
-        unresolvedTags
+        unresolvedTags,
       };
     } catch (err) {
       console.error("Mailchimp error:", err);
       results.mailchimp = { error: err.message };
-    }
-  }
-
-  // INTERCOM
-  if (channels.includes("intercom")) {
-    try {
-      const created = await createIntercomCampaign({
-        canonical,
-        apiKey: process.env.INTERCOM_API_KEY,
-        appId: process.env.INTERCOM_APP_ID
-      });
-
-      results.intercom = {
-        status: "created",
-        url: created.url
-      };
-    } catch (err) {
-      console.error("Intercom error:", err);
-      results.intercom = { error: err.message };
     }
   }
 

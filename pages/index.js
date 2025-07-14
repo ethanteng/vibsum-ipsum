@@ -97,16 +97,9 @@ export default function Home() {
             >
               <strong>Prompt:</strong> {prompt}
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "20px",
-                  marginTop: "12px",
-                  alignItems: "flex-start",
-                }}
-              >
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
                 {result.channels.includes("mailchimp") && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 300 }}>
                     <h4>Mailchimp</h4>
                     <EmailPreview html={result.mailchimp.html_body} />
                     <p>
@@ -130,32 +123,47 @@ export default function Home() {
                 )}
 
                 {result.channels.includes("intercom") && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 300 }}>
                     <h4>Intercom</h4>
-                    <div
-                      style={{
-                        border: "1px solid #ddd",
-                        background: "#f9f9f9",
-                        padding: "12px",
-                        borderRadius: "4px",
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html: `<p>${result.intercom.in_app_message}</p>`,
-                      }}
+                    <textarea
+                      readOnly
+                      value={result.intercom.in_app_message}
+                      style={{ width: "100%", height: 150, fontFamily: "monospace" }}
                     />
-                    <p>
-                      <strong>Scheduled:</strong>{" "}
-                      {result.intercom.scheduled_time || "(default 24h)"}
-                    </p>
                     {result.intercom.audience && (
-                      <p>
-                        <strong>Segments:</strong>{" "}
+                      <p style={{ marginTop: 8 }}>
+                        <strong>Recommended Segments:</strong>{" "}
                         {result.intercom.audience.segments?.join(", ") || "None"}
                         <br />
-                        <strong>Tags:</strong>{" "}
+                        <strong>Recommended Tags:</strong>{" "}
                         {result.intercom.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
+                    <button
+                      style={{ marginTop: 8 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(result.intercom.in_app_message);
+                        setStatus("✅ Copied Intercom content to clipboard!");
+                      }}
+                    >
+                      Copy to Clipboard
+                    </button>
+                    <div style={{ marginTop: 8, display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <a
+                        href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <button>Create New Post</button>
+                      </a>
+                      <a
+                        href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/banners/new`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <button>Create New Banner</button>
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
@@ -176,22 +184,6 @@ export default function Home() {
                     onClick={() => handleCreate(result, ["mailchimp"])}
                   >
                     Create in Mailchimp
-                  </button>
-                )}
-                {result.channels.includes("intercom") && (
-                  <button
-                    style={{ marginLeft: 8 }}
-                    onClick={() => handleCreate(result, ["intercom"])}
-                  >
-                    Create in Intercom
-                  </button>
-                )}
-                {result.channels.length > 1 && (
-                  <button
-                    style={{ marginLeft: 8 }}
-                    onClick={() => handleCreate(result, result.channels)}
-                  >
-                    Create All
                   </button>
                 )}
                 <button
