@@ -1,9 +1,9 @@
 // pages/index.js
 import { useState } from "react";
-import JSONPretty from "react-json-pretty";
-import "react-json-pretty/themes/monikai.css";
 import EmailPreview from "@/components/EmailPreview";
 import ReactMarkdown from "react-markdown";
+import { ReactJson } from "react-json-view-lite";
+import "react-json-view-lite/dist/index.css";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -68,48 +68,45 @@ export default function Home() {
   };
 
   return (
-    <div style={{ fontFamily: "sans-serif", maxWidth: 1000, margin: "40px auto" }}>
-      <h2>Create your multi-channel campaign</h2>
+    <div className="max-w-4xl mx-auto my-10 px-4 font-sans">
+      <h1 className="text-3xl font-bold underline text-pink-500">
+        Hello Tailwind!
+      </h1>
+      <h2 className="text-xl font-semibold mt-2 mb-4">
+        Create your multi-channel campaign
+      </h2>
       <textarea
         rows={4}
-        style={{ width: "100%" }}
+        className="w-full border border-gray-300 rounded p-2 mb-2"
         placeholder="Describe your campaign..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
-      <button onClick={handleSubmit} style={{ marginTop: 8 }}>
+      <button
+        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+        onClick={handleSubmit}
+      >
         Submit
       </button>
-      <pre style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>{status}</pre>
+      <pre className="whitespace-pre-wrap mt-4 text-sm text-gray-700">{status}</pre>
 
       {history.length > 0 && (
         <>
-          <h3>Generated Versions</h3>
+          <h3 className="text-lg font-semibold mt-8 mb-4">Generated Versions</h3>
           {history.map(({ prompt, result }, i) => (
             <div
               key={i}
-              style={{
-                border: "1px solid #ddd",
-                padding: 16,
-                margin: "16px 0",
-                borderRadius: 4,
-              }}
+              className="border border-gray-300 rounded p-4 mb-6"
             >
-              <strong>Prompt:</strong> {prompt}
+              <strong className="block mb-2">Prompt:</strong>
+              <p className="mb-4">{prompt}</p>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 20,
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="flex flex-wrap gap-5 items-start">
                 {/* Mailchimp */}
                 {result.channels.includes("mailchimp") && (
-                  <div style={{ flex: 1, minWidth: 300 }}>
-                    <h4>Mailchimp</h4>
-                    <p>
+                  <div className="flex-1 min-w-[300px]">
+                    <h4 className="text-md font-semibold mb-2">Mailchimp</h4>
+                    <p className="text-sm mb-2">
                       <strong>Subject:</strong> {result.mailchimp.subject_line}
                       <br />
                       <strong>From:</strong> {result.mailchimp.from_name} ({result.mailchimp.reply_to})
@@ -118,7 +115,7 @@ export default function Home() {
                       {result.mailchimp.scheduled_time || "(default: 24 hours in the future)"}
                     </p>
                     {result.mailchimp.audience && (
-                      <p>
+                      <p className="text-sm mb-2">
                         <strong>Segments:</strong>{" "}
                         {result.mailchimp.audience.segments?.join(", ") || "None"}
                         <br />
@@ -132,15 +129,15 @@ export default function Home() {
 
                 {/* Intercom */}
                 {result.channels.includes("intercom") && (
-                  <div style={{ flex: 1, minWidth: 300 }}>
-                    <h4>Intercom</h4>
+                  <div className="flex-1 min-w-[300px]">
+                    <h4 className="text-md font-semibold mb-2">Intercom</h4>
                     {result.intercom.news_title && (
-                      <p>
+                      <p className="text-sm mb-2">
                         <strong>News Title:</strong> {result.intercom.news_title}
                       </p>
                     )}
                     {result.intercom.audience && (
-                      <p>
+                      <p className="text-sm mb-2">
                         <strong>Segments:</strong>{" "}
                         {result.intercom.audience.segments?.join(", ") || "None"}
                         <br />
@@ -148,24 +145,19 @@ export default function Home() {
                         {result.intercom.audience.tags?.join(", ") || "None"}
                       </p>
                     )}
-                    <div
-                      style={{
-                        border: "1px solid #ddd",
-                        background: "#f9f9f9",
-                        padding: "12px",
-                        borderRadius: "4px",
-                        marginTop: 8,
-                      }}
-                    >
-                      <ReactMarkdown>{result.intercom.in_app_message_markdown}</ReactMarkdown>
+                    <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2">
+                      <ReactMarkdown>
+                        {result.intercom.in_app_message_markdown}
+                      </ReactMarkdown>
                     </div>
                     <textarea
                       readOnly
                       value={result.intercom.in_app_message_markdown}
-                      style={{ width: "100%", height: 150, marginTop: 8 }}
+                      className="w-full border border-gray-300 rounded p-2 mb-2 text-sm"
+                      rows={6}
                     />
                     <button
-                      style={{ marginTop: 8 }}
+                      className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 mb-2"
                       onClick={() => {
                         navigator.clipboard.writeText(result.intercom.in_app_message_markdown);
                         alert("✅ Copied Intercom message to clipboard!");
@@ -173,20 +165,24 @@ export default function Home() {
                     >
                       Copy to Clipboard
                     </button>
-                    <div style={{ marginTop: 8, display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <div className="flex gap-2 flex-wrap mt-2">
                       <a
                         href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/banners/new`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <button>Start New Banner</button>
+                        <button className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">
+                          Start New Banner
+                        </button>
                       </a>
                       <a
                         href={`https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <button>Start New Post</button>
+                        <button className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">
+                          Start New Post
+                        </button>
                       </a>
                     </div>
                   </div>
@@ -194,18 +190,21 @@ export default function Home() {
               </div>
 
               {showJson && (
-                <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto" }}>
-                  <JSONPretty data={result} />
+                <div className="mt-2 max-h-72 overflow-y-auto">
+                  <ReactJson data={result} />
                 </div>
               )}
 
-              <div style={{ marginTop: 8 }}>
-                <button onClick={() => setShowJson((s) => !s)}>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  className="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
+                  onClick={() => setShowJson((s) => !s)}
+                >
                   {showJson ? "Hide JSON" : "Show JSON"}
                 </button>
                 {result.channels.includes("mailchimp") && (
                   <button
-                    style={{ marginLeft: 8 }}
+                    className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
                     onClick={() => handleCreate(result, ["mailchimp"])}
                   >
                     Create in Mailchimp
@@ -213,12 +212,18 @@ export default function Home() {
                 )}
                 {result.channels.includes("intercom") && (
                   <button
+                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                     onClick={() => handleCreate(result, ["intercom"])}
                   >
                     Create in Intercom
                   </button>
                 )}
                 <button
+                  className={`px-3 py-1 rounded ${
+                    selected === result
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : "bg-gray-100 hover:bg-gray-200"
+                  }`}
                   onClick={() => setSelected(result)}
                   disabled={selected === result}
                 >

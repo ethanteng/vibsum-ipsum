@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import Head from "next/head";
+import '@/styles/globals.css';
 
 export default function MyApp({ Component, pageProps }) {
+  /*
   useEffect(() => {
     // Only run this in the browser
     window.intercomSettings = { app_id: "ngrrdj4s" };
@@ -36,6 +38,7 @@ export default function MyApp({ Component, pageProps }) {
       }
     })();
   }, []);
+  */
 
   return <Component {...pageProps} />;
 }
