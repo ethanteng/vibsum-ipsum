@@ -108,7 +108,7 @@ export default function Home() {
             onChange={(e) => setPrompt(e.target.value)}
           />
           <div className="flex items-center justify-between mt-2">
-             <div>
+            <div>
               {status && (
                 <div
                   className={`text-xs px-3 py-1 rounded ${
@@ -172,7 +172,7 @@ export default function Home() {
                   </p>
                   <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2">
                     <ReactMarkdown>
-                      {selected.intercom.in_app_message_markdown.slice(0, 600)}
+                      {selected.intercom.news_markdown}
                     </ReactMarkdown>
                   </div>
                   <button
@@ -186,16 +186,14 @@ export default function Home() {
                 {/* Post */}
                 <div className="border border-gray-200 rounded p-4 bg-white">
                   <h4 className="text-md font-semibold mb-2">Intercom Post</h4>
-                  <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2">
-                    <ReactMarkdown>
-                      {selected.intercom.in_app_message_markdown.slice(0, 500)}
-                    </ReactMarkdown>
+                  <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2 text-sm text-gray-800 whitespace-pre-wrap">
+                    {selected.intercom.post_plaintext}
                   </div>
                   <button
                     className="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800 mr-2"
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        selected.intercom.in_app_message_markdown.slice(0, 500)
+                        selected.intercom.post_plaintext
                       );
                       window.open(
                         `https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`,
@@ -203,23 +201,21 @@ export default function Home() {
                       );
                     }}
                   >
-                    Copy & Open Post
+                    Copy & Paste to Post
                   </button>
                 </div>
 
                 {/* Banner */}
                 <div className="border border-gray-200 rounded p-4 bg-white">
                   <h4 className="text-md font-semibold mb-2">Intercom Banner</h4>
-                  <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2">
-                    <ReactMarkdown>
-                      {selected.intercom.in_app_message_markdown.slice(0, 240)}
-                    </ReactMarkdown>
+                  <div className="border border-gray-300 bg-gray-50 p-3 rounded mb-2 text-sm text-gray-800">
+                    {selected.intercom.banner_text}
                   </div>
                   <button
                     className="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800"
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        selected.intercom.in_app_message_markdown.slice(0, 240)
+                        selected.intercom.banner_text
                       );
                       window.open(
                         `https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/banners/new`,
@@ -227,7 +223,7 @@ export default function Home() {
                       );
                     }}
                   >
-                    Copy & Open Banner
+                    Copy & Paste to Banner
                   </button>
                 </div>
               </section>

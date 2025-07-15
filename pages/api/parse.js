@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing prompt." });
   }
 
-  const systemPrompt = `
+const systemPrompt = `
 You are a multi-channel marketing workflow generator.
 Given a plain English prompt describing a campaign or refinements, respond ONLY with a single JSON object matching this canonical schema:
 
@@ -33,7 +33,9 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
   },
   "intercom": {
     "news_title": "string (required)",
-    "in_app_message_markdown": "string (markdown formatting supported)",
+    "news_markdown": "string (markdown formatting supported)",
+    "post_plaintext": "string (plain text only, no markdown, max 500 characters)",
+    "banner_text": "string (plain text only, max 80 characters, single line)",
     "audience": {
       "segments": ["Segment Name"],
       "tags": ["Tag Name"]
@@ -43,12 +45,15 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
 
 Important rules:
 - When a previous version is provided:
-   - Only modify the channel(s) explicitly mentioned in the prompt.
-   - If no channels are mentioned, update all channels.
+   - If the user explicitly requests to remove a channel, omit that channel object entirely.
+   - If the user mentions modifying only certain channels, include only those channels (and omit the others).
+   - If the user does not specify any channels, include all channels fully.
 - Never invent fields not in this schema.
-- For intercom.in_app_message_markdown, include markdown headings, bold, lists, and links if appropriate.
+- If you include any channel object, you MUST include all required fields for that channel.
+- For intercom.news_markdown, include markdown headings, bold, lists, and links if appropriate.
+- For intercom.post_plaintext, remove all markdown and return plain text only.
+- For intercom.banner_text, write a short, catchy, single-line message under 80 characters.
 `;
-
 
   const messages = [
     { role: "system", content: systemPrompt },
@@ -79,23 +84,37 @@ Important rules:
   try {
     const parsed = JSON.parse(rawText);
 
-    // If previous exists, merge intelligently
+    // Safe merging helpers
+    const hasRequiredMailchimp = (obj) =>
+      obj &&
+      typeof obj === "object" &&
+      ["subject_line", "from_name", "reply_to", "html_body"].every(
+        (field) => obj[field]
+      );
+
+    const hasRequiredIntercom = (obj) =>
+      obj &&
+      typeof obj === "object" &&
+      ["news_title", "news_markdown", "post_plaintext", "banner_text"].every(
+        (field) => obj[field]
+      );
+
     let merged;
     if (previous) {
       merged = {
         ...previous,
         ...parsed,
         mailchimp:
-          parsed.mailchimp !== undefined
+          hasRequiredMailchimp(parsed.mailchimp)
             ? parsed.mailchimp
             : previous.mailchimp,
         intercom:
-          parsed.intercom !== undefined
+          hasRequiredIntercom(parsed.intercom)
             ? parsed.intercom
             : previous.intercom,
       };
 
-      // Channels array should reflect the *currently included* channels
+      // Recompute channels array
       merged.channels = [];
       if (merged.mailchimp) merged.channels.push("mailchimp");
       if (merged.intercom) merged.channels.push("intercom");
@@ -103,7 +122,10 @@ Important rules:
       merged = parsed;
     }
 
+    console.log("✅ Final merged object before validation:", JSON.stringify(merged, null, 2));
+
     const validated = CanonicalSchema.parse(merged);
+
     return res.status(200).json({ success: true, result: validated });
   } catch (err) {
     console.error("❌ Parse error:", err, "\nRAW:", rawText);
