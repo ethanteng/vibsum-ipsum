@@ -153,7 +153,7 @@ export default function Home() {
                 </p>
                 <EmailPreview html={selected.mailchimp.html_body} />
                 <button
-                  className="mt-3 bg-gray-700 text-white px-3 py-1 rounded hover:bg-indigo-700"
+                  className="mt-3 bg-gray-700 text-white px-3 py-1 rounded hover:bg-blue-600"
                   onClick={() => handleCreate(selected, ["mailchimp"])}
                 >
                   Create Campaign
@@ -176,7 +176,7 @@ export default function Home() {
                     </ReactMarkdown>
                   </div>
                   <button
-                    className="bg-gray-700 text-white px-3 py-1 rounded hover:bg-indigo-700"
+                    className="bg-gray-700 text-white px-3 py-1 rounded hover:bg-blue-600"
                     onClick={() => handleCreate(selected, ["intercom"])}
                   >
                     Create News
