@@ -26,6 +26,7 @@ export default function Home() {
       const newEntry = { prompt, result: data.result };
       setHistory((h) => [newEntry, ...h]);
       setSelected(data.result);
+      setStatus(""); // Clear the status when generation is successful
     }
     setPrompt("");
   };
@@ -49,16 +50,46 @@ export default function Home() {
         if (r.unresolvedTags?.length) {
           warnings.push(`No matching tag could be found for: ${r.unresolvedTags.join(", ")}`);
         }
-        return [
-          `${ch}: ${r.status || "created"}`,
-          r.url ? `URL: ${r.url}` : null,
-          warnings.length ? `⚠️ ${warnings.join("; ")}` : null,
-        ]
-          .filter(Boolean)
-          .join(" | ");
+        
+        // Format the message more clearly
+        const channelName = ch.charAt(0).toUpperCase() + ch.slice(1);
+        const status = r.status || "created";
+        const url = r.url ? `See ${r.url}.` : null;
+        
+        // Handle different channel types with appropriate naming
+        let successMessage;
+        if (ch === "intercom") {
+          successMessage = "Intercom News created.";
+        } else {
+          successMessage = `${channelName} campaign created.`;
+        }
+        if (url) successMessage += ` ${url}`;
+        
+        // Build error messages separately
+        const errorMessages = [];
+        if (status !== "created" && status !== "success") {
+          errorMessages.push(`${status} error occurred`);
+        }
+        if (warnings.length) {
+          errorMessages.push(...warnings);
+        }
+        
+        return {
+          success: successMessage,
+          errors: errorMessages
+        };
       });
 
-      setStatus(`Created:\n${messages.join("\n")}`);
+      // Separate success and error messages
+      const successMessages = messages.map(m => m.success).filter(Boolean);
+      const allErrors = messages.flatMap(m => m.errors).filter(Boolean);
+      
+      let statusMessage = successMessages.join("\n");
+      if (allErrors.length > 0) {
+        statusMessage += "\n\nErrors:\n" + allErrors.join("\n");
+      }
+      
+      setStatus(statusMessage);
 
       Object.values(data.results).forEach((r) => {
         if (r.url) window.open(r.url, "_blank");
@@ -109,14 +140,28 @@ export default function Home() {
           <div className="flex items-center justify-between mt-2">
             <div>
               {status && (
-                <div
-                  className={`text-xs px-3 py-1 rounded ${
-                    status.startsWith("Error")
-                      ? "text-red-700 bg-red-100"
-                      : "text-gray-700 bg-gray-50"
-                  }`}
-                >
-                  {status}
+                <div className="text-xs px-3 py-1 rounded text-gray-700 bg-gray-50">
+                  {status.split('\n').map((line, index) => {
+                    if (line.startsWith('Errors:')) {
+                      return (
+                        <div key={index} className="text-red-700 font-semibold mt-2">
+                          {line}
+                        </div>
+                      );
+                    } else if (line.startsWith('No matching') || line.includes('error occurred')) {
+                      return (
+                        <div key={index} className="text-red-700 ml-4">
+                          {line}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div key={index}>
+                          {line}
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
               )}
             </div>
