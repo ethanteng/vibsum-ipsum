@@ -1,11 +1,26 @@
 // pages/index.js
 import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/router";
 import EmailPreview from "@/components/EmailPreview";
+import Logo from "@/components/Logo";
 import ReactMarkdown from "react-markdown";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 
 export default function Home() {
+  const { data: session, status: sessionStatus } = useSession();
+  const router = useRouter();
+
+  // Redirect to sign in if not authenticated
+  if (sessionStatus === "loading") {
+    return <div>Loading...</div>;
+  }
+
+  if (sessionStatus === "unauthenticated") {
+    router.push("/auth/signin");
+    return null;
+  }
   const [prompt, setPrompt] = useState("");
   const [history, setHistory] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -99,8 +114,24 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-6 py-3 z-10">
+        <div className="flex justify-between items-center">
+          <Logo className="h-8 w-auto" />
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">{session?.user?.email}</span>
+            <button
+              onClick={() => signOut()}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Sidebar */}
-      <aside className="w-72 border-r border-gray-200 bg-white p-4 flex flex-col">
+      <aside className="w-72 border-r border-gray-200 bg-white p-4 flex flex-col mt-16">
         <h2 className="text-xl font-bold mb-4">Prompt History</h2>
         {history.length === 0 && (
           <p className="text-gray-500 text-sm mb-4">
@@ -126,7 +157,7 @@ export default function Home() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-6 overflow-y-auto mt-16">
         {/* Prompt Box */}
         <div className="bg-white shadow border border-gray-200 p-4 rounded mb-6">
           <h1 className="text-2xl font-bold mb-2">Create Your Multi-Channel Campaign</h1>
