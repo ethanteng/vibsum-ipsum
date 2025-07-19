@@ -3,6 +3,55 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
+// Custom OAuth providers (we'll implement these)
+const MailchimpProvider = {
+  id: "mailchimp",
+  name: "Mailchimp",
+  type: "oauth",
+  authorization: {
+    url: "https://login.mailchimp.com/oauth2/authorize",
+    params: {
+      scope: "campaigns:read campaigns:write",
+      response_type: "code",
+    },
+  },
+  token: "https://login.mailchimp.com/oauth2/token",
+  userinfo: "https://login.mailchimp.com/oauth2/metadata",
+  profile(profile) {
+    return {
+      id: profile.user_id,
+      name: profile.accountname,
+      email: profile.login.email,
+    };
+  },
+  clientId: process.env.MAILCHIMP_CLIENT_ID,
+  clientSecret: process.env.MAILCHIMP_CLIENT_SECRET,
+};
+
+const IntercomProvider = {
+  id: "intercom",
+  name: "Intercom",
+  type: "oauth",
+  authorization: {
+    url: "https://app.intercom.com/oauth",
+    params: {
+      scope: "read write",
+      response_type: "code",
+    },
+  },
+  token: "https://api.intercom.io/auth/eagle/token",
+  userinfo: "https://api.intercom.io/me",
+  profile(profile) {
+    return {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+    };
+  },
+  clientId: process.env.INTERCOM_CLIENT_ID,
+  clientSecret: process.env.INTERCOM_CLIENT_SECRET,
+};
+
 const prisma = new PrismaClient();
 
 export default NextAuth({
@@ -39,7 +88,12 @@ export default NextAuth({
         };
       }
     }),
+    MailchimpProvider,
+    IntercomProvider,
   ],
+  session: {
+    strategy: 'jwt',
+  },
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {

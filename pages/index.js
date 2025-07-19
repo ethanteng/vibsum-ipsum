@@ -11,6 +11,11 @@ import "react-json-view-lite/dist/index.css";
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
+  const [prompt, setPrompt] = useState("");
+  const [history, setHistory] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [status, setStatus] = useState("");
+  const [showJson, setShowJson] = useState(false);
 
   // Redirect to sign in if not authenticated
   if (sessionStatus === "loading") {
@@ -21,11 +26,6 @@ export default function Home() {
     router.push("/auth/signin");
     return null;
   }
-  const [prompt, setPrompt] = useState("");
-  const [history, setHistory] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [status, setStatus] = useState("");
-  const [showJson, setShowJson] = useState(false);
 
   const handleSubmit = async () => {
     setStatus("Working on it...");
