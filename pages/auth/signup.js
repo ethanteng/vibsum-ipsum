@@ -15,6 +15,8 @@ export default function SignUp() {
     setError('');
 
     try {
+      console.log('Submitting signup form:', { email, name });
+      
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
@@ -27,15 +29,31 @@ export default function SignUp() {
         }),
       });
 
-      const data = await res.json();
+      console.log('Signup response status:', res.status);
+      console.log('Signup response headers:', Object.fromEntries(res.headers.entries()));
+
+      // Check if response is empty
+      const responseText = await res.text();
+      console.log('Signup response text:', responseText);
+
+      let data;
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Invalid response from server');
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Something went wrong');
+        throw new Error(data.error || `HTTP ${res.status}: ${res.statusText}`);
       }
+
+      console.log('Signup successful:', data);
 
       // Redirect to sign in page
       router.push('/auth/signin?message=Account created successfully');
     } catch (error) {
+      console.error('Signup error:', error);
       setError(error.message);
       setLoading(false);
     }

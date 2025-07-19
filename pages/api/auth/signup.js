@@ -9,9 +9,16 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Signup request received:', { 
+      hasBody: !!req.body, 
+      contentType: req.headers['content-type'],
+      bodyKeys: req.body ? Object.keys(req.body) : []
+    });
+
     const { email, password, name } = req.body;
 
     if (!email || !password) {
+      console.log('Missing required fields:', { email: !!email, password: !!password });
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
@@ -21,6 +28,7 @@ export default async function handler(req, res) {
     });
 
     if (existingUser) {
+      console.log('User already exists:', email);
       return res.status(400).json({ error: 'User already exists' });
     }
 
@@ -36,6 +44,8 @@ export default async function handler(req, res) {
       },
     });
 
+    console.log('User created successfully:', { id: user.id, email: user.email });
+
     res.status(201).json({ 
       message: 'User created successfully',
       user: {
@@ -46,6 +56,17 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Signup error:', error);
+    
+    // Check if it's a database connection issue
+    if (error.code === 'P1001') {
+      return res.status(500).json({ error: 'Database connection failed' });
+    }
+    
+    // Check if it's a Prisma validation error
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 } 
