@@ -12,7 +12,11 @@ export default function Connections() {
   // Handle OAuth callback messages
   useEffect(() => {
     if (router.query.success) {
-      setMessage({ type: 'success', text: 'Mailchimp connected successfully!' });
+      const successMessages = {
+        mailchimp_connected: 'Mailchimp connected successfully!',
+        intercom_connected: 'Intercom connected successfully!'
+      };
+      setMessage({ type: 'success', text: successMessages[router.query.success] || 'Connected successfully!' });
     } else if (router.query.error) {
       const errorMessages = {
         mailchimp_oauth_failed: 'Failed to connect to Mailchimp. Please try again.',
@@ -20,6 +24,11 @@ export default function Connections() {
         mailchimp_token_exchange_failed: 'Failed to exchange authorization code. Please try again.',
         mailchimp_user_info_failed: 'Failed to get user information from Mailchimp.',
         mailchimp_oauth_error: 'An error occurred during Mailchimp connection.',
+        intercom_oauth_failed: 'Failed to connect to Intercom. Please try again.',
+        intercom_invalid_response: 'Invalid response from Intercom. Please try again.',
+        intercom_token_exchange_failed: 'Failed to exchange authorization code. Please try again.',
+        intercom_user_info_failed: 'Failed to get user information from Intercom.',
+        intercom_oauth_error: 'An error occurred during Intercom connection.',
       };
       setMessage({ type: 'error', text: errorMessages[router.query.error] || 'An error occurred.' });
     }
@@ -41,7 +50,8 @@ export default function Connections() {
   };
 
   const handleConnectIntercom = () => {
-    signIn("intercom", { callbackUrl: "/connections" });
+    // Use custom OAuth flow instead of NextAuth
+    window.location.href = '/api/auth/intercom';
   };
 
   return (

@@ -39,29 +39,6 @@ export const authOptions = {
         };
       }
     }),
-    {
-      id: "intercom",
-      name: "Intercom",
-      type: "oauth",
-      authorization: {
-        url: "https://app.intercom.com/oauth",
-        params: {
-          scope: "read write",
-          response_type: "code",
-        },
-      },
-      token: "https://api.intercom.io/auth/eagle/token",
-      userinfo: "https://api.intercom.io/me",
-      profile(profile) {
-        return {
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-        };
-      },
-      clientId: process.env.INTERCOM_CLIENT_ID,
-      clientSecret: process.env.INTERCOM_CLIENT_SECRET,
-    },
   ],
   session: {
     strategy: 'jwt',
@@ -70,26 +47,6 @@ export const authOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
-      }
-      
-      // Store OAuth tokens when user connects accounts
-      if (account) {
-        if (account.provider === 'intercom') {
-          await prisma.intercomToken.upsert({
-            where: { userId: token.id },
-            update: {
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token,
-              expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-            },
-            create: {
-              userId: token.id,
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token,
-              expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-            },
-          });
-        }
       }
       
       return token;
