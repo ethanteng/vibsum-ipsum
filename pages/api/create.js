@@ -1,11 +1,19 @@
 // pages/api/create.js
+import { getServerSession } from "next-auth/next";
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
 import { createIntercomNewsItem } from "@/lib/createIntercomNewsItem";
+import { getUserMailchimpToken, getUserIntercomToken } from "@/lib/getUserTokens";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Get user session
+  const session = await getServerSession(req, res);
+  if (!session?.user?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   const { canonical, channels } = req.body;
@@ -18,6 +26,15 @@ export default async function handler(req, res) {
 
   if (channels.includes("mailchimp")) {
     try {
+      // Get user's Mailchimp token
+      const mailchimpToken = await getUserMailchimpToken(session.user.id);
+      if (!mailchimpToken) {
+        results.mailchimp = { 
+          error: "Mailchimp not connected. Please connect your account in Settings > Connections." 
+        };
+        return res.status(200).json({ results });
+      }
+
       const {
         resolvedSegments,
         resolvedTags,
@@ -42,7 +59,7 @@ export default async function handler(req, res) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+            Authorization: `Bearer ${mailchimpToken}`,
           },
           body: JSON.stringify(campaignPayload),
         }
@@ -56,7 +73,7 @@ export default async function handler(req, res) {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+            Authorization: `Bearer ${mailchimpToken}`,
           },
           body: JSON.stringify(contentPayload),
         }
@@ -71,7 +88,7 @@ export default async function handler(req, res) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+              Authorization: `Bearer ${mailchimpToken}`,
             },
             body: JSON.stringify({ schedule_time: scheduled_time }),
           }
@@ -94,19 +111,28 @@ export default async function handler(req, res) {
   // INTERCOM NEWS
   if (channels.includes("intercom")) {
     try {
+      // Get user's Intercom token
+      const intercomToken = await getUserIntercomToken(session.user.id);
+      if (!intercomToken) {
+        results.intercom = { 
+          error: "Intercom not connected. Please connect your account in Settings > Connections." 
+        };
+        return res.status(200).json({ results });
+      }
+
       const created = await createIntercomNewsItem({
         canonical,
-        apiKey: process.env.INTERCOM_API_KEY,
+        apiKey: intercomToken,
         appId: process.env.NEXT_PUBLIC_INTERCOM_APP_ID,
       });
 
-      results.intercom_news = {
+      results.intercom = {
         status: "created",
         url: created.url,
       };
     } catch (err) {
       console.error("Intercom News error:", err);
-      results.intercom_news = { error: err.message };
+      results.intercom = { error: err.message };
     }
   }
 

@@ -120,6 +120,12 @@ export default function Home() {
           <Logo className="h-8 w-auto" />
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">{session?.user?.email}</span>
+            <a
+              href="/connections"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Connections
+            </a>
             <button
               onClick={() => signOut()}
               className="text-sm text-gray-600 hover:text-gray-800"
