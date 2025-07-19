@@ -13,7 +13,7 @@ export default function Home() {
   const [showJson, setShowJson] = useState(false);
 
   const handleSubmit = async () => {
-    setStatus("Processing...");
+    setStatus("Working on it...");
     const res = await fetch("/api/parse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,9 +21,8 @@ export default function Home() {
     });
     const data = await res.json();
     if (data.error) {
-      setStatus("Error: " + data.error);
+      setStatus("Something went wrong. See below for details. " + data.error);
     } else {
-      setStatus("Done!");
       const newEntry = { prompt, result: data.result };
       setHistory((h) => [newEntry, ...h]);
       setSelected(data.result);
@@ -32,7 +31,7 @@ export default function Home() {
   };
 
   const handleCreate = async (canonical, channels) => {
-    setStatus(`Creating in ${channels.join(", ")}...`);
+    setStatus(`Creating in ${channels.map(channel => channel.charAt(0).toUpperCase() + channel.slice(1)).join(", ")}...`);
     const res = await fetch("/api/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,15 +39,15 @@ export default function Home() {
     });
     const data = await res.json();
     if (data.error) {
-      setStatus("Error: " + data.error);
+      setStatus("Something went wrong. See below for details. " + data.error);
     } else {
       const messages = Object.entries(data.results).map(([ch, r]) => {
         const warnings = [];
         if (r.unresolvedSegments?.length) {
-          warnings.push(`Unresolved Segments: ${r.unresolvedSegments.join(", ")}`);
+          warnings.push(`No matching segment could be found for: ${r.unresolvedSegments.join(", ")}`);
         }
         if (r.unresolvedTags?.length) {
-          warnings.push(`Unresolved Tags: ${r.unresolvedTags.join(", ")}`);
+          warnings.push(`No matching tag could be found for: ${r.unresolvedTags.join(", ")}`);
         }
         return [
           `${ch}: ${r.status || "created"}`,
