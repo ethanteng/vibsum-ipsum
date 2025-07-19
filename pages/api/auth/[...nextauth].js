@@ -3,58 +3,9 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
-// Custom OAuth providers (we'll implement these)
-const MailchimpProvider = {
-  id: "mailchimp",
-  name: "Mailchimp",
-  type: "oauth",
-  authorization: {
-    url: "https://login.mailchimp.com/oauth2/authorize",
-    params: {
-      scope: "campaigns:read campaigns:write",
-      response_type: "code",
-    },
-  },
-  token: "https://login.mailchimp.com/oauth2/token",
-  userinfo: "https://login.mailchimp.com/oauth2/metadata",
-  profile(profile) {
-    return {
-      id: profile.user_id,
-      name: profile.accountname,
-      email: profile.login.email,
-    };
-  },
-  clientId: process.env.MAILCHIMP_CLIENT_ID,
-  clientSecret: process.env.MAILCHIMP_CLIENT_SECRET,
-};
-
-const IntercomProvider = {
-  id: "intercom",
-  name: "Intercom",
-  type: "oauth",
-  authorization: {
-    url: "https://app.intercom.com/oauth",
-    params: {
-      scope: "read write",
-      response_type: "code",
-    },
-  },
-  token: "https://api.intercom.io/auth/eagle/token",
-  userinfo: "https://api.intercom.io/me",
-  profile(profile) {
-    return {
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-    };
-  },
-  clientId: process.env.INTERCOM_CLIENT_ID,
-  clientSecret: process.env.INTERCOM_CLIENT_SECRET,
-};
-
 const prisma = new PrismaClient();
 
-export default NextAuth({
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -88,8 +39,29 @@ export default NextAuth({
         };
       }
     }),
-    MailchimpProvider,
-    IntercomProvider,
+    {
+      id: "intercom",
+      name: "Intercom",
+      type: "oauth",
+      authorization: {
+        url: "https://app.intercom.com/oauth",
+        params: {
+          scope: "read write",
+          response_type: "code",
+        },
+      },
+      token: "https://api.intercom.io/auth/eagle/token",
+      userinfo: "https://api.intercom.io/me",
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+        };
+      },
+      clientId: process.env.INTERCOM_CLIENT_ID,
+      clientSecret: process.env.INTERCOM_CLIENT_SECRET,
+    },
   ],
   session: {
     strategy: 'jwt',
@@ -102,23 +74,6 @@ export default NextAuth({
       
       // Store OAuth tokens when user connects accounts
       if (account) {
-        if (account.provider === 'mailchimp') {
-          await prisma.mailchimpToken.upsert({
-            where: { userId: token.id },
-            update: {
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token,
-              expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-            },
-            create: {
-              userId: token.id,
-              accessToken: account.access_token,
-              refreshToken: account.refresh_token,
-              expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-            },
-          });
-        }
-        
         if (account.provider === 'intercom') {
           await prisma.intercomToken.upsert({
             where: { userId: token.id },
@@ -164,4 +119,6 @@ export default NextAuth({
     signIn: '/auth/signin',
     signUp: '/auth/signup',
   },
-}); 
+};
+
+export default NextAuth(authOptions); 

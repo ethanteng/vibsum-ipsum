@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import React from 'react';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -8,6 +9,18 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Handle OAuth errors from URL parameters
+  React.useEffect(() => {
+    if (router.query.error) {
+      const errorMessages = {
+        mailchimp: 'Failed to connect to Mailchimp. Please check your configuration.',
+        intercom: 'Failed to connect to Intercom. Please check your configuration.',
+        default: 'An error occurred during authentication.'
+      };
+      setError(errorMessages[router.query.error] || errorMessages.default);
+    }
+  }, [router.query.error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,7 +86,9 @@ export default function SignIn() {
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">
+              {error}
+            </div>
           )}
 
           <div>

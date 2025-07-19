@@ -1,5 +1,5 @@
 // pages/api/create.js
-import { getServerSession } from "next-auth/next";
+import { getToken } from "next-auth/jwt";
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
 import { createIntercomNewsItem } from "@/lib/createIntercomNewsItem";
@@ -10,9 +10,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Get user session
-  const session = await getServerSession(req, res);
-  if (!session?.user?.id) {
+  console.log('Create endpoint - Request headers:', req.headers);
+  console.log('Create endpoint - Cookies:', req.headers.cookie);
+
+  // Get user token
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  console.log('Create endpoint - Token:', { 
+    hasToken: !!token, 
+    userId: token?.id,
+    userEmail: token?.email
+  });
+  
+  if (!token?.id) {
+    console.log('Create endpoint - No token or no user ID');
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -27,7 +37,9 @@ export default async function handler(req, res) {
   if (channels.includes("mailchimp")) {
     try {
       // Get user's Mailchimp token
-      const mailchimpToken = await getUserMailchimpToken(session.user.id);
+      const mailchimpToken = await getUserMailchimpToken(token.id);
+      console.log('Mailchimp token found:', !!mailchimpToken);
+      
       if (!mailchimpToken) {
         results.mailchimp = { 
           error: "Mailchimp not connected. Please connect your account in Settings > Connections." 
@@ -112,7 +124,7 @@ export default async function handler(req, res) {
   if (channels.includes("intercom")) {
     try {
       // Get user's Intercom token
-      const intercomToken = await getUserIntercomToken(session.user.id);
+      const intercomToken = await getUserIntercomToken(token.id);
       if (!intercomToken) {
         results.intercom = { 
           error: "Intercom not connected. Please connect your account in Settings > Connections." 

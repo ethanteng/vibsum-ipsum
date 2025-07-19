@@ -1,11 +1,29 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
 import Logo from "@/components/Logo";
 
 export default function Connections() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Handle OAuth callback messages
+  useEffect(() => {
+    if (router.query.success) {
+      setMessage({ type: 'success', text: 'Mailchimp connected successfully!' });
+    } else if (router.query.error) {
+      const errorMessages = {
+        mailchimp_oauth_failed: 'Failed to connect to Mailchimp. Please try again.',
+        mailchimp_invalid_response: 'Invalid response from Mailchimp. Please try again.',
+        mailchimp_token_exchange_failed: 'Failed to exchange authorization code. Please try again.',
+        mailchimp_user_info_failed: 'Failed to get user information from Mailchimp.',
+        mailchimp_oauth_error: 'An error occurred during Mailchimp connection.',
+      };
+      setMessage({ type: 'error', text: errorMessages[router.query.error] || 'An error occurred.' });
+    }
+  }, [router.query]);
 
   // Redirect to sign in if not authenticated
   if (status === "loading") {
@@ -18,7 +36,8 @@ export default function Connections() {
   }
 
   const handleConnectMailchimp = () => {
-    signIn("mailchimp", { callbackUrl: "/connections" });
+    // Use custom OAuth flow instead of NextAuth
+    window.location.href = '/api/auth/mailchimp';
   };
 
   const handleConnectIntercom = () => {
@@ -47,6 +66,17 @@ export default function Connections() {
       <main className="pt-20 px-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Connections</h1>
+          
+          {/* Success/Error Messages */}
+          {message.text && (
+            <div className={`mb-6 p-4 rounded-md ${
+              message.type === 'success' 
+                ? 'bg-green-50 border border-green-200 text-green-800' 
+                : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
+              {message.text}
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Mailchimp Connection */}
