@@ -5,9 +5,14 @@ import { useState, useEffect } from "react";
 import Logo from "@/components/Logo";
 
 export default function Connections() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Debug session state
+  useEffect(() => {
+    console.log('Session state:', { status, session: !!session, user: session?.user?.email });
+  }, [status, session]);
 
   // Handle OAuth callback messages
   useEffect(() => {
@@ -17,6 +22,12 @@ export default function Connections() {
         intercom_connected: 'Intercom connected successfully!'
       };
       setMessage({ type: 'success', text: successMessages[router.query.success] || 'Connected successfully!' });
+      
+      // Refresh session to update connection status
+      update();
+      
+      // Clear the query parameters from URL
+      router.replace('/connections', undefined, { shallow: true });
     } else if (router.query.error) {
       const errorMessages = {
         mailchimp_oauth_failed: 'Failed to connect to Mailchimp. Please try again.',
@@ -31,8 +42,11 @@ export default function Connections() {
         intercom_oauth_error: 'An error occurred during Intercom connection.',
       };
       setMessage({ type: 'error', text: errorMessages[router.query.error] || 'An error occurred.' });
+      
+      // Clear the query parameters from URL
+      router.replace('/connections', undefined, { shallow: true });
     }
-  }, [router.query]);
+  }, [router.query, update, router]);
 
   // Redirect to sign in if not authenticated
   if (status === "loading") {
@@ -45,12 +59,12 @@ export default function Connections() {
   }
 
   const handleConnectMailchimp = () => {
-    // Use custom OAuth flow instead of NextAuth
+    // Use window.location.href for external OAuth redirects
     window.location.href = '/api/auth/mailchimp';
   };
 
   const handleConnectIntercom = () => {
-    // Use custom OAuth flow instead of NextAuth
+    // Use window.location.href for external OAuth redirects
     window.location.href = '/api/auth/intercom';
   };
 
@@ -116,7 +130,7 @@ export default function Connections() {
               ) : (
                 <button
                   onClick={handleConnectMailchimp}
-                  className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
                   Connect Mailchimp
                 </button>

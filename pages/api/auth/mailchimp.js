@@ -9,9 +9,25 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     // Step 1: Redirect to Mailchimp OAuth
-    const clientId = process.env.MAILCHIMP_CLIENT_ID;
-    const redirectUri = 'http://127.0.0.1:3000/api/mailchimp/callback';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const clientId = isProduction 
+      ? process.env.MAILCHIMP_CLIENT_ID_PROD || process.env.MAILCHIMP_CLIENT_ID
+      : process.env.MAILCHIMP_CLIENT_ID_DEV || process.env.MAILCHIMP_CLIENT_ID;
+    
+    // Use 127.0.0.1 for development (Mailchimp requirement)
+    const baseUrl = isProduction 
+      ? (process.env.NEXTAUTH_URL || 'https://app.vybescript.com')
+      : 'http://127.0.0.1:3000';
+    const redirectUri = `${baseUrl}/api/mailchimp/callback`;
     const scope = 'campaigns:read campaigns:write';
+    
+    console.log('Mailchimp OAuth Debug:', {
+      isProduction,
+      clientId: clientId ? 'SET' : 'NOT_SET',
+      baseUrl,
+      redirectUri,
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL
+    });
     
     const authUrl = `https://login.mailchimp.com/oauth2/authorize?` +
       `client_id=${clientId}&` +

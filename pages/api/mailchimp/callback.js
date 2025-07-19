@@ -10,16 +10,39 @@ export default async function handler(req, res) {
   
   if (error) {
     console.error('Mailchimp OAuth error:', error);
-    return res.redirect('/connections?error=mailchimp_oauth_failed');
+    return res.redirect('http://localhost:3000/connections?error=mailchimp_oauth_failed');
   }
 
   if (!code || !state) {
     console.error('Missing code or state:', { code: !!code, state });
-    return res.redirect('/connections?error=mailchimp_invalid_response');
+    return res.redirect('http://localhost:3000/connections?error=mailchimp_invalid_response');
   }
 
   try {
     // Step 2: Exchange code for access token
+    const isProduction = process.env.NODE_ENV === 'production';
+    const clientId = isProduction 
+      ? process.env.MAILCHIMP_CLIENT_ID_PROD || process.env.MAILCHIMP_CLIENT_ID
+      : process.env.MAILCHIMP_CLIENT_ID_DEV || process.env.MAILCHIMP_CLIENT_ID;
+    const clientSecret = isProduction
+      ? process.env.MAILCHIMP_CLIENT_SECRET_PROD || process.env.MAILCHIMP_CLIENT_SECRET
+      : process.env.MAILCHIMP_CLIENT_SECRET_DEV || process.env.MAILCHIMP_CLIENT_SECRET;
+    
+    // Use 127.0.0.1 for development (Mailchimp requirement)
+    const baseUrl = isProduction 
+      ? (process.env.NEXTAUTH_URL || 'https://app.vybescript.com')
+      : 'http://127.0.0.1:3000';
+    const redirectUri = `${baseUrl}/api/mailchimp/callback`;
+    
+    console.log('Mailchimp Token Exchange Debug:', {
+      isProduction,
+      clientId: clientId ? 'SET' : 'NOT_SET',
+      clientSecret: clientSecret ? 'SET' : 'NOT_SET',
+      baseUrl,
+      redirectUri,
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL
+    });
+    
     const tokenResponse = await fetch('https://login.mailchimp.com/oauth2/token', {
       method: 'POST',
       headers: {
@@ -27,17 +50,17 @@ export default async function handler(req, res) {
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: process.env.MAILCHIMP_CLIENT_ID,
-        client_secret: process.env.MAILCHIMP_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         code: code,
-        redirect_uri: 'http://127.0.0.1:3000/api/mailchimp/callback',
+        redirect_uri: redirectUri,
       }),
     });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange failed:', errorText);
-      return res.redirect('/connections?error=mailchimp_token_exchange_failed');
+      return res.redirect('http://localhost:3000/connections?error=mailchimp_token_exchange_failed');
     }
 
     const tokenData = await tokenResponse.json();
@@ -52,7 +75,7 @@ export default async function handler(req, res) {
 
     if (!userInfoResponse.ok) {
       console.error('User info fetch failed');
-      return res.redirect('/connections?error=mailchimp_user_info_failed');
+      return res.redirect('http://localhost:3000/connections?error=mailchimp_user_info_failed');
     }
 
     const userInfo = await userInfoResponse.json();
@@ -75,10 +98,10 @@ export default async function handler(req, res) {
     });
 
     console.log('Mailchimp OAuth successful for user:', state);
-    res.redirect('/connections?success=mailchimp_connected');
+    res.redirect('http://localhost:3000/connections?success=mailchimp_connected');
 
   } catch (error) {
     console.error('Mailchimp OAuth callback error:', error);
-    res.redirect('/connections?error=mailchimp_oauth_error');
+    res.redirect('http://localhost:3000/connections?error=mailchimp_oauth_error');
   }
 } 
