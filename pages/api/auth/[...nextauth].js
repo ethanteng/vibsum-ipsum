@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../../lib/prisma';
+import { findUserByEmail } from '../../../lib/db';
 
 export const authOptions = {
   providers: [
@@ -16,34 +17,8 @@ export const authOptions = {
           return null;
         }
 
-        // Add retry logic for serverless connection issues
-        let user;
-        let retries = 3;
-        
-        while (retries > 0) {
-          try {
-            user = await prisma.user.findUnique({
-              where: { email: credentials.email }
-            });
-            break; // Success, exit retry loop
-          } catch (error) {
-            retries--;
-            console.log(`Database query failed, retries left: ${retries}`, error.message);
-            
-            if (retries === 0) {
-              throw error; // Re-throw if all retries exhausted
-            }
-            
-            // If it's a prepared statement error, reset the connection
-            if (error.message && error.message.includes('prepared statement')) {
-              console.log('Prepared statement error detected, resetting connection...');
-              await prisma.$reset();
-            }
-            
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-        }
+        // Use direct database query to avoid Prisma prepared statement issues
+        const user = await findUserByEmail(credentials.email);
 
         if (!user) {
           return null;
