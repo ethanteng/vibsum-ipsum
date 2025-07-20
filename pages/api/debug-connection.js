@@ -9,8 +9,11 @@ export default async function handler(req, res) {
     });
   }
   
-  // Show the connection string with password masked
+  // Show the connection string with password masked but keep username
   const maskedUrl = dbUrl.replace(/:([^@]+)@/, ':****@');
+  
+  // Also show the parts separately
+  const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
   
   console.log('Current DATABASE_URL:', maskedUrl);
   
@@ -25,6 +28,15 @@ export default async function handler(req, res) {
     hasAmpersand: dbUrl.includes('&'),
     hasEquals: dbUrl.includes('='),
     hasQuestionMark: dbUrl.includes('?'),
-    hasPercent: dbUrl.includes('%')
+    hasPercent: dbUrl.includes('%'),
+    // Show URL structure
+    hasUsername: dbUrl.includes('postgres.'),
+    urlStructure: urlParts ? {
+      protocol: 'postgresql',
+      username: urlParts[1],
+      host: urlParts[3],
+      port: urlParts[4],
+      database: urlParts[5]
+    } : 'Invalid URL format'
   });
 } 
