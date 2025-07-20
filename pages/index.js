@@ -73,13 +73,19 @@ export default function Home() {
         if (ch === "intercom") {
           successMessage = "Intercom News created.";
         } else {
-          successMessage = `${channelName} campaign created.`;
+          if (status === "scheduled_successfully") {
+            successMessage = `${channelName} campaign created and scheduled successfully.`;
+          } else if (status === "not_requested") {
+            successMessage = `${channelName} campaign created (not scheduled).`;
+          } else {
+            successMessage = `${channelName} campaign created.`;
+          }
         }
         if (url) successMessage += ` ${url}`;
         
         // Build error messages separately
         const errorMessages = [];
-        if (status !== "created" && status !== "success") {
+        if (status !== "created" && status !== "success" && status !== "scheduled_successfully" && status !== "not_requested") {
           errorMessages.push(`${status} error occurred`);
         }
         if (warnings.length) {

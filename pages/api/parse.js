@@ -1,5 +1,5 @@
 // pages/api/parse.js
-import { CanonicalSchema } from "@/lib/canonicalSchema";
+import { canonicalSchema } from "@/lib/canonicalSchema";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -117,9 +117,15 @@ Important rules:
       merged = parsed;
     }
 
+    // Set default scheduled_time if not specified
+    if (merged.mailchimp && !merged.mailchimp.scheduled_time) {
+      const defaultTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      merged.mailchimp.scheduled_time = defaultTime;
+    }
+
     console.log("✅ Final merged object before validation:", JSON.stringify(merged, null, 2));
 
-    const validated = CanonicalSchema.parse(merged);
+    const validated = canonicalSchema.parse(merged);
 
     return res.status(200).json({ success: true, result: validated });
   } catch (err) {

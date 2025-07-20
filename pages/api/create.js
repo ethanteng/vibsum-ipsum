@@ -99,6 +99,7 @@ export default async function handler(req, res) {
 
       let scheduleStatus = "not_requested";
       if (scheduled_time) {
+        console.log('Attempting to schedule campaign with time:', scheduled_time);
         const schedRes = await fetch(
           `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${created.id}/actions/schedule`,
           {
@@ -110,6 +111,10 @@ export default async function handler(req, res) {
             body: JSON.stringify({ schedule_time: scheduled_time }),
           }
         );
+        console.log('Schedule API response status:', schedRes.status);
+        if (!schedRes.ok) {
+          console.log('Schedule API error:', await schedRes.text());
+        }
         scheduleStatus = schedRes.ok ? "scheduled_successfully" : "schedule_failed";
       }
 
