@@ -1,5 +1,6 @@
 // pages/api/create.js
-import { getToken } from "next-auth/jwt";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
 import { normalizeForMailchimp } from "@/lib/normalizeForMailchimp";
 import { resolveMailchimpTargets } from "@/lib/resolveMailchimpTargets";
 import { createIntercomNewsItem } from "@/lib/createIntercomNewsItem";
@@ -13,16 +14,16 @@ export default async function handler(req, res) {
   console.log('Create endpoint - Request headers:', req.headers);
   console.log('Create endpoint - Cookies:', req.headers.cookie);
 
-  // Get user token
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  console.log('Create endpoint - Token:', { 
-    hasToken: !!token, 
-    userId: token?.id,
-    userEmail: token?.email
+  // Get user session
+  const session = await getServerSession(req, res, authOptions);
+  console.log('Create endpoint - Session:', { 
+    hasSession: !!session, 
+    userId: session?.user?.id,
+    userEmail: session?.user?.email
   });
   
-  if (!token?.id) {
-    console.log('Create endpoint - No token or no user ID');
+  if (!session?.user?.id) {
+    console.log('Create endpoint - No session or no user ID');
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
   if (channels.includes("mailchimp")) {
     try {
       // Get user's Mailchimp token
-      const mailchimpToken = await getUserMailchimpToken(token.id);
+      const mailchimpToken = await getUserMailchimpToken(session.user.id);
       console.log('Mailchimp token found:', !!mailchimpToken);
       
       if (!mailchimpToken) {
@@ -124,7 +125,7 @@ export default async function handler(req, res) {
   if (channels.includes("intercom")) {
     try {
       // Get user's Intercom token
-      const intercomToken = await getUserIntercomToken(token.id);
+      const intercomToken = await getUserIntercomToken(session.user.id);
       if (!intercomToken) {
         results.intercom = { 
           error: "Intercom not connected. Please connect your account in Settings > Connections." 
