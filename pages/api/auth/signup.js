@@ -34,10 +34,28 @@ export default async function handler(req, res) {
 
     console.log('About to check for existing user...');
     
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    // Check if user already exists with retry logic
+    let existingUser;
+    let findRetries = 3;
+    
+    while (findRetries > 0) {
+      try {
+        existingUser = await prisma.user.findUnique({
+          where: { email },
+        });
+        break; // Success, exit retry loop
+      } catch (error) {
+        findRetries--;
+        console.log(`Database query failed, retries left: ${findRetries}`, error.message);
+        
+        if (findRetries === 0) {
+          throw error; // Re-throw if all retries exhausted
+        }
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
     console.log('Existing user check complete:', { found: !!existingUser });
 
@@ -54,14 +72,32 @@ export default async function handler(req, res) {
 
     console.log('About to create user...');
     
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name: name || null,
-      },
-    });
+    // Create user with retry logic
+    let user;
+    let createRetries = 3;
+    
+    while (createRetries > 0) {
+      try {
+        user = await prisma.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            name: name || null,
+          },
+        });
+        break; // Success, exit retry loop
+      } catch (error) {
+        createRetries--;
+        console.log(`User creation failed, retries left: ${createRetries}`, error.message);
+        
+        if (createRetries === 0) {
+          throw error; // Re-throw if all retries exhausted
+        }
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
     console.log('User created successfully:', { id: user.id, email: user.email });
 
