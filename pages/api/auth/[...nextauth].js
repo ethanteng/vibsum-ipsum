@@ -34,8 +34,14 @@ export const authOptions = {
               throw error; // Re-throw if all retries exhausted
             }
             
+            // If it's a prepared statement error, reset the connection
+            if (error.message && error.message.includes('prepared statement')) {
+              console.log('Prepared statement error detected, resetting connection...');
+              await prisma.$reset();
+            }
+            
             // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
 
@@ -109,8 +115,14 @@ export const authOptions = {
               break;
             }
             
+            // If it's a prepared statement error, reset the connection
+            if (error.message && error.message.includes('prepared statement')) {
+              console.log('Session query prepared statement error, resetting connection...');
+              await prisma.$reset();
+            }
+            
             // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
         
