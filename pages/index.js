@@ -7,6 +7,7 @@ import Logo from "@/components/Logo";
 import ReactMarkdown from "react-markdown";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
+import { applyTemplateToPreview } from "@/lib/extractMailchimpTemplate";
 
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
@@ -19,6 +20,9 @@ export default function Home() {
   const [mailchimpTemplates, setMailchimpTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplateHtml, setSelectedTemplateHtml] = useState("");
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [loadingTemplateHtml, setLoadingTemplateHtml] = useState(false);
 
   // Fetch history on login/page load
   useEffect(() => {
@@ -43,6 +47,15 @@ export default function Home() {
       fetchMailchimpTemplates();
     }
   }, [sessionStatus]);
+
+  // Fetch template HTML when template is selected
+  useEffect(() => {
+    if (selectedTemplateId) {
+      fetchTemplateHtml(selectedTemplateId);
+    } else {
+      setSelectedTemplateHtml("");
+    }
+  }, [selectedTemplateId]);
 
   // Helper to safely parse JSON
   function safeParseJson(str) {
@@ -69,6 +82,37 @@ export default function Home() {
     } finally {
       setLoadingTemplates(false);
     }
+  };
+
+  // Fetch template HTML for preview
+  const fetchTemplateHtml = async (templateId) => {
+    setLoadingTemplateHtml(true);
+    try {
+      const res = await fetch(`/api/mailchimp/template?templateId=${templateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedTemplateHtml(data.html);
+      } else {
+        console.error("Failed to fetch template HTML:", await res.text());
+      }
+    } catch (error) {
+      console.error("Error fetching template HTML:", error);
+    } finally {
+      setLoadingTemplateHtml(false);
+    }
+  };
+
+  // Get the HTML to display in preview
+  const getPreviewHtml = () => {
+    if (!selected?.mailchimp?.html_body) {
+      return "";
+    }
+
+    if (showTemplatePreview && selectedTemplateHtml && selectedTemplateId) {
+      return applyTemplateToPreview(selectedTemplateHtml, selected.mailchimp.html_body);
+    }
+
+    return selected.mailchimp.html_body;
   };
 
   // Redirect to sign in if not authenticated
@@ -362,7 +406,37 @@ export default function Home() {
                     </>
                   )}
                 </p>
-                <EmailPreview html={selected.mailchimp.html_body} />
+                
+                {/* Template Preview Toggle */}
+                {selectedTemplateId && (
+                  <div className="mb-3">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Preview Mode:
+                      </label>
+                      <button
+                        onClick={() => setShowTemplatePreview(!showTemplatePreview)}
+                        className={`px-3 py-1 text-xs rounded ${
+                          showTemplatePreview
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {showTemplatePreview ? "With Template" : "Original"}
+                      </button>
+                      {loadingTemplateHtml && (
+                        <span className="text-xs text-gray-500">Loading template...</span>
+                      )}
+                    </div>
+                    {showTemplatePreview && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        Showing how your content will look with the selected template applied
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                <EmailPreview html={getPreviewHtml()} />
                 <button
                   className="mt-3 bg-gray-700 text-white px-3 py-1 rounded hover:bg-blue-600"
                   onClick={() => handleCreate(selected, ["mailchimp"])}
