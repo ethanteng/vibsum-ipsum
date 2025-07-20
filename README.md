@@ -1,4 +1,14 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Vibsum Ipsum - Multi-Channel Campaign Generator
+
+This is a [Next.js](https://nextjs.org) project that generates multi-channel marketing campaigns from plain English prompts. It supports Mailchimp and Intercom channels.
+
+## Features
+
+- **AI-Powered Campaign Generation**: Describe your campaign in plain English and get structured content for multiple channels
+- **Mailchimp Integration**: Create campaigns with beautiful templates from your previous emails
+- **Intercom Integration**: Generate news items, posts, and banners
+- **Template Selection**: Choose from your previous Mailchimp campaigns to use as templates for new campaigns
+- **Multi-Channel Support**: Generate content for multiple platforms simultaneously
 
 ## Getting Started
 
@@ -16,13 +26,28 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## Mailchimp Template Feature
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+The application now supports using your previous Mailchimp campaigns as templates for new campaigns:
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+1. **Automatic Template Detection**: When you connect your Mailchimp account, the app automatically fetches your recent campaigns
+2. **Template Selection**: Choose from a dropdown of your previous campaigns to use as a template
+3. **Content Replacement**: The app preserves the styling and layout of your chosen template while replacing the content with your new campaign content
+4. **Fallback Styling**: If no template is selected, campaigns use a clean, professional default styling
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### How It Works
+
+1. The app fetches your recent Mailchimp campaigns via the Mailchimp API
+2. When you select a template, it extracts the HTML structure and styling
+3. Your new campaign content is inserted into the template while preserving the original design
+4. The new campaign is created with the combined template styling and your content
+
+## API Routes
+
+- `/api/parse` - Generates campaign content from prompts
+- `/api/create` - Creates campaigns in selected channels
+- `/api/mailchimp/campaigns` - Fetches Mailchimp campaigns for template selection
+- `/api/history` - Manages campaign history
 
 ## Learn More
 

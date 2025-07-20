@@ -11,23 +11,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  console.log('Create endpoint - Request headers:', req.headers);
-  console.log('Create endpoint - Cookies:', req.headers.cookie);
-
   // Get user session
   const session = await getServerSession(req, res, authOptions);
-  console.log('Create endpoint - Session:', { 
-    hasSession: !!session, 
-    userId: session?.user?.id,
-    userEmail: session?.user?.email
-  });
   
   if (!session?.user?.id) {
-    console.log('Create endpoint - No session or no user ID');
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { canonical, channels } = req.body;
+  const { canonical, channels, templateId } = req.body;
 
   if (!canonical || !channels || !Array.isArray(channels)) {
     return res.status(400).json({ error: "Missing canonical or channels array." });
@@ -39,7 +30,6 @@ export default async function handler(req, res) {
     try {
       // Get user's Mailchimp token
       const mailchimpToken = await getUserMailchimpToken(session.user.id);
-      console.log('Mailchimp token found:', !!mailchimpToken);
       
       if (!mailchimpToken) {
         results.mailchimp = { 
@@ -62,13 +52,36 @@ export default async function handler(req, res) {
         });
       }
 
-      const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(canonical);
-
-      if (resolvedSegments.length > 0) {
-        campaignPayload.recipients.segment_opts = {
-          saved_segment_id: resolvedSegments[0].id,
-        };
+      // Fetch template HTML if templateId is provided
+      let templateHtml = null;
+      if (templateId) {
+        try {
+          const templateRes = await fetch(
+            `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${templateId}/content`,
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${mailchimpToken}`,
+              },
+            }
+          );
+          
+          if (templateRes.ok) {
+            const templateData = await templateRes.json();
+            templateHtml = templateData.html;
+          } else {
+            console.warn('Failed to fetch template:', await templateRes.text());
+          }
+        } catch (error) {
+          console.error('Error fetching template:', error);
+        }
       }
+
+      const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(
+        canonical, 
+        resolvedSegments.length > 0 ? { segment_opts: { saved_segment_id: resolvedSegments[0].id } } : null,
+        templateHtml
+      );
 
       const createRes = await fetch(
         `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns`,
@@ -99,7 +112,6 @@ export default async function handler(req, res) {
 
       let scheduleStatus = "not_requested";
       if (scheduled_time) {
-        console.log('Attempting to schedule campaign with time:', scheduled_time);
         const schedRes = await fetch(
           `https://${process.env.MAILCHIMP_DC}.api.mailchimp.com/3.0/campaigns/${created.id}/actions/schedule`,
           {
@@ -111,7 +123,6 @@ export default async function handler(req, res) {
             body: JSON.stringify({ schedule_time: scheduled_time }),
           }
         );
-        console.log('Schedule API response status:', schedRes.status);
         if (!schedRes.ok) {
           console.log('Schedule API error:', await schedRes.text());
         }

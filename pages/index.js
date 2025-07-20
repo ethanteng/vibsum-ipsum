@@ -16,6 +16,9 @@ export default function Home() {
   const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState("");
   const [showJson, setShowJson] = useState(false);
+  const [mailchimpTemplates, setMailchimpTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Fetch history on login/page load
   useEffect(() => {
@@ -34,10 +37,39 @@ export default function Home() {
     }
   }, [sessionStatus]);
 
+  // Fetch Mailchimp templates when user is authenticated
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetchMailchimpTemplates();
+    }
+  }, [sessionStatus]);
+
   // Helper to safely parse JSON
   function safeParseJson(str) {
     try { return JSON.parse(str); } catch { return str; }
   }
+
+  // Fetch Mailchimp templates
+  const fetchMailchimpTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const res = await fetch("/api/mailchimp/campaigns");
+      if (res.ok) {
+        const data = await res.json();
+        setMailchimpTemplates(data.campaigns || []);
+        // Auto-select the most recent template if available
+        if (data.campaigns && data.campaigns.length > 0) {
+          setSelectedTemplateId(data.campaigns[0].id);
+        }
+      } else {
+        console.error("Failed to fetch templates:", await res.text());
+      }
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
 
   // Redirect to sign in if not authenticated
   if (sessionStatus === "loading") {
@@ -95,10 +127,17 @@ export default function Home() {
 
   const handleCreate = async (canonical, channels) => {
     setStatus(`Creating in ${channels.map(channel => channel.charAt(0).toUpperCase() + channel.slice(1)).join(", ")}...`);
+    
+    // Include template ID if Mailchimp is selected and a template is chosen
+    const requestBody = { canonical, channels };
+    if (channels.includes("mailchimp") && selectedTemplateId) {
+      requestBody.templateId = selectedTemplateId;
+    }
+    
     const res = await fetch("/api/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ canonical, channels }),
+      body: JSON.stringify(requestBody),
     });
     const data = await res.json();
     if (data.error) {
@@ -224,6 +263,40 @@ export default function Home() {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
+          
+          {/* Mailchimp Template Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mailchimp Template (Optional)
+            </label>
+            {loadingTemplates ? (
+              <div className="text-sm text-gray-500">Loading templates...</div>
+            ) : mailchimpTemplates.length > 0 ? (
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="w-full border border-gray-300 rounded p-2 text-sm"
+              >
+                <option value="">Use default styling</option>
+                {mailchimpTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title} - {template.subject_line} ({new Date(template.send_time).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-sm text-gray-500">
+                No previous campaigns found. Campaigns will use default styling.
+              </div>
+            )}
+            <button
+              onClick={fetchMailchimpTemplates}
+              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              Refresh Templates
+            </button>
+          </div>
+          
           <div className="flex items-center justify-between mt-2">
             <div>
               {status && (
@@ -281,6 +354,13 @@ export default function Home() {
                   <br />
                   <strong>Scheduled for:</strong>{" "}
                   {selected.mailchimp.scheduled_time || "(default: 24 hours in the future)"}
+                  {selectedTemplateId && (
+                    <>
+                      <br />
+                      <strong>Template:</strong>{" "}
+                      {mailchimpTemplates.find(t => t.id === selectedTemplateId)?.title || "Selected template"}
+                    </>
+                  )}
                 </p>
                 <EmailPreview html={selected.mailchimp.html_body} />
                 <button
@@ -349,7 +429,7 @@ export default function Home() {
                         selected.intercom.banner_text
                       );
                       window.open(
-                        `https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/banners/new`,
+                        `https://app.intercom.com/a/apps/${process.env.NEXT_PUBLIC_INTERCOM_APP_ID}/outbound/all`,
                         "_blank"
                       );
                     }}
@@ -362,20 +442,24 @@ export default function Home() {
           </div>
         )}
 
+        {/* JSON View */}
+        {selected && showJson && (
+          <div className="mt-6 bg-white shadow border border-gray-200 p-4 rounded">
+            <h3 className="text-lg font-semibold mb-2">JSON View</h3>
+            <JsonView data={selected} />
+          </div>
+        )}
+
+        {/* Toggle JSON View */}
         {selected && (
-          <>
-            {showJson && (
-              <div className="mt-4 max-h-72 overflow-y-auto">
-                <JsonView data={selected} />
-              </div>
-            )}
+          <div className="mt-4">
             <button
-              className="mt-2 text-sm text-gray-600 underline"
-              onClick={() => setShowJson((s) => !s)}
+              className="text-sm text-gray-600 hover:text-gray-800"
+              onClick={() => setShowJson(!showJson)}
             >
-              {showJson ? "Hide JSON" : "Show JSON"}
+              {showJson ? "Hide" : "Show"} JSON
             </button>
-          </>
+          </div>
         )}
       </main>
     </div>
