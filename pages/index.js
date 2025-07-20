@@ -62,9 +62,6 @@ export default function Home() {
         if (r.unresolvedSegments?.length) {
           warnings.push(`No matching segment could be found for: ${r.unresolvedSegments.join(", ")}`);
         }
-        if (r.unresolvedTags?.length) {
-          warnings.push(`No matching tag could be found for: ${r.unresolvedTags.join(", ")}`);
-        }
         
         // Format the message more clearly
         const channelName = ch.charAt(0).toUpperCase() + ch.slice(1);
@@ -222,8 +219,8 @@ export default function Home() {
                 <p className="text-sm mb-2">
                   <strong>To:</strong>{" "}
                   {selected.mailchimp.audience?.segments?.join(", ") ||
-                    selected.mailchimp.audience?.tags?.join(", ") ||
-                    "None"}
+                  "All subscribers"
+                  }
                   <br />
                   <strong>From:</strong> {selected.mailchimp.from_name} ({selected.mailchimp.reply_to})
                   <br />

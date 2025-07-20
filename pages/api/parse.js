@@ -27,19 +27,14 @@ Given a plain English prompt describing a campaign or refinements, respond ONLY 
     "html_body": "string",
     "scheduled_time": "ISO 8601 timestamp or omit",
     "audience": {
-      "segments": ["Segment Name"],
-      "tags": ["Tag Name"]
+      "segments": ["VIP Customers", "Newsletter Subscribers"]
     }
   },
   "intercom": {
-    "news_title": "string (required)",
-    "news_markdown": "string (markdown formatting supported)",
-    "post_plaintext": "string (plain text only, no markdown, max 500 characters)",
-    "banner_text": "string (plain text only, max 80 characters, single line)",
-    "audience": {
-      "segments": ["Segment Name"],
-      "tags": ["Tag Name"]
-    }
+    "news_title": "string",
+    "news_markdown": "string (markdown format)",
+    "post_plaintext": "string (plain text only, max 500 characters)",
+    "banner_text": "string (plain text only, max 80 characters, single line)"
   }
 }
 

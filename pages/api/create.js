@@ -48,15 +48,19 @@ export default async function handler(req, res) {
         return res.status(200).json({ results });
       }
 
-      const {
-        resolvedSegments,
-        resolvedTags,
-        unresolvedSegments,
-        unresolvedTags
-      } = await resolveMailchimpTargets({
-        segmentNames: canonical.mailchimp.audience?.segments || [],
-        tagNames: canonical.mailchimp.audience?.tags || []
-      });
+      // Resolve Mailchimp targets
+      const { resolvedSegments, unresolvedSegments } = await resolveMailchimpTargets(
+        mailchimpToken.accessToken,
+        process.env.MAILCHIMP_DC,
+        canonical
+      );
+
+      // Check for unresolved targets
+      if (unresolvedSegments.length > 0) {
+        return res.status(400).json({
+          error: `Could not resolve segments: ${unresolvedSegments.join(", ")}`
+        });
+      }
 
       const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(canonical);
 
@@ -113,7 +117,6 @@ export default async function handler(req, res) {
         status: scheduleStatus,
         url: `https://${process.env.MAILCHIMP_DC}.admin.mailchimp.com/campaigns/edit?id=${created.web_id}`,
         unresolvedSegments,
-        unresolvedTags,
       };
     } catch (err) {
       console.error("Mailchimp error:", err);
