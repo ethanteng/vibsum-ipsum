@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         issues.push('Should use port 6543, not 5432');
       }
       
-      if (!dbUrl.includes('sslmode=require')) {
+      if (!dbUrl.includes('sslmode=require') && !dbUrl.includes('sslmode%3Drequire')) {
         issues.push('Missing sslmode=require parameter');
       }
       
