@@ -16,9 +16,28 @@ export const authOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
-        });
+        // Add retry logic for serverless connection issues
+        let user;
+        let retries = 3;
+        
+        while (retries > 0) {
+          try {
+            user = await prisma.user.findUnique({
+              where: { email: credentials.email }
+            });
+            break; // Success, exit retry loop
+          } catch (error) {
+            retries--;
+            console.log(`Database query failed, retries left: ${retries}`, error.message);
+            
+            if (retries === 0) {
+              throw error; // Re-throw if all retries exhausted
+            }
+            
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
 
         if (!user) {
           return null;
@@ -65,14 +84,35 @@ export const authOptions = {
       if (token) {
         session.user.id = token.id;
         
-        // Add OAuth connection status to session
-        const mailchimpToken = await prisma.mailchimpToken.findUnique({
-          where: { userId: token.id }
-        });
+        // Add OAuth connection status to session with retry logic
+        let mailchimpToken, intercomToken;
+        let retries = 3;
         
-        const intercomToken = await prisma.intercomToken.findUnique({
-          where: { userId: token.id }
-        });
+        while (retries > 0) {
+          try {
+            mailchimpToken = await prisma.mailchimpToken.findUnique({
+              where: { userId: token.id }
+            });
+            
+            intercomToken = await prisma.intercomToken.findUnique({
+              where: { userId: token.id }
+            });
+            break; // Success, exit retry loop
+          } catch (error) {
+            retries--;
+            console.log(`Session query failed, retries left: ${retries}`, error.message);
+            
+            if (retries === 0) {
+              // Don't throw, just set to null to avoid breaking session
+              mailchimpToken = null;
+              intercomToken = null;
+              break;
+            }
+            
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
         
         session.connections = {
           mailchimp: !!mailchimpToken,
