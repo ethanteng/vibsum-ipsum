@@ -35,8 +35,17 @@ export default async function handler(req, res) {
 
     console.log('About to check for existing user...');
     
-    // Check if user already exists using direct database query
-    const existingUser = await findUserByEmail(email);
+    // Use Prisma for local development, PostgreSQL client for production
+    let existingUser;
+    if (process.env.NODE_ENV === 'development') {
+      // Use Prisma for local development (SQLite)
+      existingUser = await prisma.user.findUnique({
+        where: { email }
+      });
+    } else {
+      // Use PostgreSQL client for production
+      existingUser = await findUserByEmail(email);
+    }
 
     console.log('Existing user check complete:', { found: !!existingUser });
 
@@ -53,8 +62,26 @@ export default async function handler(req, res) {
 
     console.log('About to create user...');
     
-    // Create user using direct database query
-    const user = await createUser(email, hashedPassword, name || null);
+    // Create user using appropriate method
+    let user;
+    if (process.env.NODE_ENV === 'development') {
+      // Use Prisma for local development (SQLite)
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name: name || null
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true
+        }
+      });
+    } else {
+      // Use PostgreSQL client for production
+      user = await createUser(email, hashedPassword, name || null);
+    }
 
     console.log('User created successfully:', { id: user.id, email: user.email });
 

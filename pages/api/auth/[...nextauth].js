@@ -17,8 +17,17 @@ export const authOptions = {
           return null;
         }
 
-        // Use direct database query to avoid Prisma prepared statement issues
-        const user = await findUserByEmail(credentials.email);
+        // Use Prisma for local development, PostgreSQL client for production
+        let user;
+        if (process.env.NODE_ENV === 'development') {
+          // Use Prisma for local development (SQLite)
+          user = await prisma.user.findUnique({
+            where: { email: credentials.email }
+          });
+        } else {
+          // Use PostgreSQL client for production
+          user = await findUserByEmail(credentials.email);
+        }
 
         if (!user) {
           return null;
