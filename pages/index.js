@@ -311,7 +311,7 @@ export default function Home() {
           {/* Mailchimp Template Selection */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mailchimp Template (Optional)
+              Mailchimp Template To Use (Optional)
             </label>
             {loadingTemplates ? (
               <div className="text-sm text-gray-500">Loading templates...</div>
@@ -401,7 +401,7 @@ export default function Home() {
                   {selectedTemplateId && (
                     <>
                       <br />
-                      <strong>Template:</strong>{" "}
+                      <strong>Template applied:</strong>{" "}
                       {mailchimpTemplates.find(t => t.id === selectedTemplateId)?.title || "Selected template"}
                     </>
                   )}
@@ -422,7 +422,7 @@ export default function Home() {
                             : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                         }`}
                       >
-                        {showTemplatePreview ? "With Template" : "Original"}
+                        {showTemplatePreview ? "With Template" : "No Template"}
                       </button>
                       {loadingTemplateHtml && (
                         <span className="text-xs text-gray-500">Loading template...</span>
@@ -430,7 +430,7 @@ export default function Home() {
                     </div>
                     {showTemplatePreview && (
                       <p className="text-xs text-gray-600 mt-1">
-                        Showing how your content will look with the selected template applied
+                        How your content will look with the selected template applied.
                       </p>
                     )}
                   </div>
