@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../../lib/prisma';
 
 export default async function handler(req, res) {
+  // Simple test to see if route is hit
+  console.log('SIGNUP ROUTE HIT');
+  
   try {
     console.log('=== SIGNUP API START ===');
     console.log('Signup API called:', {
