@@ -1,5 +1,5 @@
 // pages/index.js
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import EmailPreview from "@/components/EmailPreview";
@@ -16,6 +16,28 @@ export default function Home() {
   const [selected, setSelected] = useState(null);
   const [status, setStatus] = useState("");
   const [showJson, setShowJson] = useState(false);
+
+  // Fetch history on login/page load
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      fetch("/api/history")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.campaigns) {
+            setHistory(data.campaigns.map(c => ({
+              ...c,
+              // Parse result JSON string if needed
+              result: typeof c.result === "string" ? safeParseJson(c.result) : c.result
+            })));
+          }
+        });
+    }
+  }, [sessionStatus]);
+
+  // Helper to safely parse JSON
+  function safeParseJson(str) {
+    try { return JSON.parse(str); } catch { return str; }
+  }
 
   // Redirect to sign in if not authenticated
   if (sessionStatus === "loading") {
@@ -38,10 +60,35 @@ export default function Home() {
     if (data.error) {
       setStatus("Something went wrong. See below for details. " + data.error);
     } else {
-      const newEntry = { prompt, result: data.result };
-      setHistory((h) => [newEntry, ...h]);
-      setSelected(data.result);
-      setStatus(""); // Clear the status when generation is successful
+      // Save to DB
+      const saveRes = await fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, result: data.result }),
+      });
+      const saveData = await saveRes.json();
+      if (saveData.campaign) {
+        setHistory((h) => [
+          {
+            ...saveData.campaign,
+            result: typeof saveData.campaign.result === "string"
+              ? safeParseJson(saveData.campaign.result)
+              : saveData.campaign.result
+          },
+          ...h,
+        ]);
+        setSelected(
+          typeof saveData.campaign.result === "string"
+            ? safeParseJson(saveData.campaign.result)
+            : saveData.campaign.result
+        );
+      } else {
+        // fallback: just update local state
+        const newEntry = { prompt, result: data.result };
+        setHistory((h) => [newEntry, ...h]);
+        setSelected(data.result);
+      }
+      setStatus("");
     }
     setPrompt("");
   };
