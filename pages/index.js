@@ -287,6 +287,7 @@ export default function Home() {
                     : "hover:bg-gray-100"
                 }`}
                 onClick={() => setSelected(result)}
+                title={prompt}
               >
                 {prompt.slice(0, 40)}...
               </button>
