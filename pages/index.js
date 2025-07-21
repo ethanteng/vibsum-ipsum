@@ -461,6 +461,14 @@ export default function Home() {
             >
               Connections
             </a>
+            {session?.user?.email === "ethan+vybescript@ethanteng.com" && (
+              <a
+                href="/admin"
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Admin
+              </a>
+            )}
             <button
               onClick={() => signOut()}
               className="text-sm text-gray-600 hover:text-gray-800"

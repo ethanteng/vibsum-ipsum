@@ -75,6 +75,10 @@ export default function Connections() {
         <div className="flex justify-between items-center">
           <Logo className="h-8 w-auto" />
           <div className="flex items-center space-x-4">
+            <a href="/connections" className="text-sm text-blue-600 hover:text-blue-800 font-medium">Connections</a>
+            {session?.user?.email === "ethan+vybescript@ethanteng.com" && (
+              <a href="/admin" className="text-sm text-blue-600 hover:text-blue-800 font-medium">Admin</a>
+            )}
             <span className="text-sm text-gray-600">{session?.user?.email}</span>
             <button
               onClick={() => signOut()}
