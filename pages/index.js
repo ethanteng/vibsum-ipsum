@@ -22,7 +22,7 @@ export default function Home() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplateHtml, setSelectedTemplateHtml] = useState("");
-  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [showTemplatePreview, setShowTemplatePreview] = useState(true); // Default to With Template
   const [loadingTemplateHtml, setLoadingTemplateHtml] = useState(false);
   const [mailchimpSegments, setMailchimpSegments] = useState([]);
   const [intercomSegments, setIntercomSegments] = useState([]);
@@ -31,6 +31,8 @@ export default function Home() {
   const [loadingSegments, setLoadingSegments] = useState(false);
   const [originalSelected, setOriginalSelected] = useState(null);
   const [jsonViewKey, setJsonViewKey] = useState(0);
+  // Add state for advanced options and preview mode
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   // Fetch history on login/page load
   useEffect(() => {
@@ -540,50 +542,58 @@ export default function Home() {
             onChange={(e) => setPrompt(e.target.value)}
           />
           
-          {/* Mailchimp Template Selection */}
+          {/* Advanced Options Toggle */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mailchimp Template To Use (Optional)
-            </label>
-            {loadingTemplates ? (
-              <div className="text-sm text-gray-500">Loading templates...</div>
-            ) : mailchimpTemplates.length > 0 ? (
-              <select
-                value={selectedTemplateId}
-                onChange={(e) => setSelectedTemplateId(e.target.value)}
-                className="w-full border border-gray-300 rounded p-2 text-sm"
-              >
-                <option value="">Use default styling</option>
-                {mailchimpTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.title} - {template.subject_line} ({new Date(template.send_time).toLocaleDateString()})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="text-sm text-gray-500">
-                No previous campaigns found. Campaigns will use default styling.
-              </div>
-            )}
             <button
-              onClick={fetchMailchimpTemplates}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+              type="button"
+              className="text-blue-600 underline text-sm focus:outline-none"
+              onClick={() => setShowAdvancedOptions((v) => !v)}
             >
-              Refresh Templates
+              {showAdvancedOptions ? 'Advanced Options (Hide)' : 'Advanced Options (Show)'}
             </button>
           </div>
-
-          {/* Segment Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {/* Mailchimp Segment Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mailchimp Target Segment
-              </label>
-              {loadingSegments ? (
-                <div className="text-sm text-gray-500">Loading segments...</div>
-              ) : mailchimpSegments.length > 0 ? (
-                                  <select
+          {showAdvancedOptions && (
+            <div className="mb-4 space-y-4">
+              {/* Mailchimp Template To Use (Optional) */}
+              {mailchimpTemplates.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mailchimp Template To Use (Optional)
+                  </label>
+                  {loadingTemplates ? (
+                    <div className="text-sm text-gray-500">Loading templates...</div>
+                  ) : (
+                    <select
+                      value={selectedTemplateId || ''}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="w-full border border-gray-300 rounded p-2 text-sm"
+                    >
+                      <option value="">Use default styling</option>
+                      {mailchimpTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.title} - {template.subject_line} ({new Date(template.send_time).toLocaleDateString()})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-blue-600 underline mt-1"
+                    onClick={fetchMailchimpTemplates}
+                  >
+                    Refresh Templates
+                  </button>
+                </div>
+              )}
+              {/* Mailchimp Target Segment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mailchimp Target Segment
+                </label>
+                {loadingSegments ? (
+                  <div className="text-sm text-gray-500">Loading segments...</div>
+                ) : mailchimpSegments.length > 0 ? (
+                  <select
                     value={selectedMailchimpSegment}
                     onChange={(e) => {
                       const newValue = e.target.value;
@@ -595,28 +605,27 @@ export default function Home() {
                     }}
                     className="w-full border border-gray-300 rounded p-2 text-sm"
                   >
-                  {mailchimpSegments.map((segment) => (
-                    <option key={segment.id} value={segment.id}>
-                      {segment.name} {segment.member_count ? `(${segment.member_count} members)` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="text-sm text-gray-500">
-                  No segments found. Will use "Everyone".
-                </div>
-              )}
-            </div>
-
-            {/* Intercom Segment Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Intercom Target Segment
-              </label>
-              {loadingSegments ? (
-                <div className="text-sm text-gray-500">Loading segments...</div>
-              ) : intercomSegments.length > 0 ? (
-                                  <select
+                    {mailchimpSegments.map((segment) => (
+                      <option key={segment.id} value={segment.id}>
+                        {segment.name} {segment.member_count ? `(${segment.member_count} members)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    No segments found. Will use "Everyone".
+                  </div>
+                )}
+              </div>
+              {/* Intercom Target Segment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Intercom Target Segment
+                </label>
+                {loadingSegments ? (
+                  <div className="text-sm text-gray-500">Loading segments...</div>
+                ) : intercomSegments.length > 0 ? (
+                  <select
                     value={selectedIntercomSegment}
                     onChange={(e) => {
                       const newValue = e.target.value;
@@ -626,22 +635,23 @@ export default function Home() {
                     }}
                     className="w-full border border-gray-300 rounded p-2 text-sm"
                   >
-                  {intercomSegments.map((segment) => (
-                    <option key={segment.id} value={segment.id}>
-                      {segment.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="text-sm text-gray-500">
-                  No segments found. Will use "Everyone".
-                </div>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Note: This is for reference only. Please confirm the correct segment in Intercom.
-              </p>
+                    {intercomSegments.map((segment) => (
+                      <option key={segment.id} value={segment.id}>
+                        {segment.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    No segments found. Will use "Everyone".
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Note: This is for reference only. Please confirm the correct segment in Intercom.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
           
           <div className="flex items-center justify-between mt-2">
             <div>
