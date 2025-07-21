@@ -12,43 +12,57 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing prompt." });
   }
 
-const systemPrompt = `
-You are a multi-channel marketing workflow generator.
-Given a plain English prompt describing a campaign or refinements, respond ONLY with a single JSON object matching this canonical schema:
+  // Before calling the AI model, fetch recent Mailchimp and Intercom content
+  const [mailchimpContent, intercomContent] = await Promise.all([
+    fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/mailchimp/recent-campaigns`, {
+      headers: req.headers
+    }).then(r => r.ok ? r.json() : { campaigns: [] }),
+    fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/intercom/recent-content`, {
+      headers: req.headers
+    }).then(r => r.ok ? r.json() : { content: [] })
+  ]);
 
-{
-  "campaign_name": "string (required)",
-  "channels": ["mailchimp", "intercom"], // at least one
+  // Build a system prompt for the AI
+  function buildSystemPrompt(mailchimpContent, intercomContent) {
+    let prompt = "You are an expert email/newsletter copywriter for this company. Here are recent examples of their style and language.\n\n";
+    if (mailchimpContent.campaigns && mailchimpContent.campaigns.length > 0) {
+      prompt += "Recent Mailchimp Campaigns:\n";
+      mailchimpContent.campaigns.forEach(c => {
+        prompt += `Subject: ${c.subject_line || "(no subject)"}\nPreview: ${c.preview_text || "(no preview)"}\nBody: ${(c.plain_text || c.html || "(no content)").slice(0, 500)}\n---\n`;
+      });
+    }
+    if (intercomContent.content && intercomContent.content.length > 0) {
+      prompt += "Recent Intercom Content:\n";
+      intercomContent.content.forEach(item => {
+        prompt += `Type: ${item.type}\nTitle: ${item.title || "(no title)"}\nBody: ${(item.body || "(no content)").slice(0, 500)}\n---\n`;
+      });
+    }
+    prompt += `\nPlease match the tone, style, and language of these examples in all future responses.\n\nIMPORTANT: Respond ONLY with a single JSON object matching the schema below. Do NOT include any commentary, explanation, or extra text. Your response MUST be valid JSON only. Do not include markdown, code blocks, or any other formatting. If you cannot answer, respond with an empty JSON object: {}.\n\nHere is the required JSON schema. Respond ONLY with a single object matching this structure:\n\n` +
+      `{
+  "campaign_name": "string",
+  "channels": ["mailchimp", "intercom"],
   "mailchimp": {
     "subject_line": "string",
     "preview_text": "string",
     "from_name": "string",
-    "reply_to": "valid email",
+    "reply_to": "string",
     "html_body": "string",
-    "scheduled_time": "ISO 8601 timestamp or omit",
+    "scheduled_time": "string (ISO date)",
     "audience": {
-      "segments": ["VIP Customers", "Newsletter Subscribers"]
+      "segments": ["string"]
     }
   },
   "intercom": {
     "news_title": "string",
-    "news_markdown": "string (markdown format)",
-    "post_plaintext": "string (plain text only, max 500 characters)",
-    "banner_text": "string (plain text only, max 80 characters, single line)"
+    "news_markdown": "string",
+    "post_plaintext": "string",
+    "banner_text": "string"
   }
-}
+}`;
+    return prompt;
+  }
 
-Important rules:
-- When a previous version is provided:
-   - If the user explicitly requests to remove a channel, omit that channel object entirely.
-   - If the user mentions modifying only certain channels, include only those channels (and omit the others).
-   - If the user does not specify any channels, include all channels fully.
-- Never invent fields not in this schema.
-- If you include any channel object, you MUST include all required fields for that channel.
-- For intercom.news_markdown, include markdown headings, bold, lists, and links if appropriate.
-- For intercom.post_plaintext, remove all markdown and return plain text only.
-- For intercom.banner_text, write a short, catchy, single-line message under 80 characters.
-`;
+  const systemPrompt = buildSystemPrompt(mailchimpContent, intercomContent);
 
   const messages = [
     { role: "system", content: systemPrompt },
@@ -74,10 +88,23 @@ Important rules:
   });
 
   const data = await completion.json();
-  const rawText = data.choices?.[0]?.message?.content;
+  let rawText = data.choices?.[0]?.message?.content;
+
+  // Extract the first JSON object from the AI response, if necessary
+  // This helps if the AI includes extra text or formatting by mistake
+  let jsonText = rawText;
+  if (typeof rawText === "string") {
+    const match = rawText.match(/\{[\s\S]*\}/);
+    if (match) {
+      if (match[0].length !== rawText.length) {
+        console.warn("AI response contained extra text. Extracted JSON block.");
+      }
+      jsonText = match[0];
+    }
+  }
 
   try {
-    const parsed = JSON.parse(rawText);
+    const parsed = JSON.parse(jsonText);
 
     // Safe merging helpers
     const hasRequiredMailchimp = (obj) =>
