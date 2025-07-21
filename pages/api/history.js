@@ -10,18 +10,24 @@ export default async function handler(req, res) {
   const userId = session.user.id;
 
   if (req.method === "GET") {
-    // Fetch all campaigns for this user, newest first
-    const campaigns = await prisma.campaign.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        prompt: true,
-        result: true,
-        createdAt: true,
-      },
-    });
-    res.json({ campaigns });
+    try {
+      // Fetch the most recent 20 campaigns for this user, newest first
+      const campaigns = await prisma.campaign.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          prompt: true,
+          result: true,
+          createdAt: true,
+        },
+      });
+      res.json({ campaigns });
+    } catch (err) {
+      console.error('Error fetching campaigns:', err);
+      res.status(500).json({ error: 'Failed to fetch campaigns', details: err.message });
+    }
   } else if (req.method === "POST") {
     const { prompt, result } = req.body;
     if (!prompt || !result) {
