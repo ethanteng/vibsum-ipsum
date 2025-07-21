@@ -37,7 +37,10 @@ export default async function handler(req, res) {
     }
 
     const segmentsData = await segmentsRes.json();
-    const segments = segmentsData.segments || [];
+    // Only include user-created segments (type: 'static' or 'saved'), exclude 'campaign_static'
+    const segments = (segmentsData.segments || [])
+      .filter(s => (s.type === 'static' || s.type === 'saved'))
+      .map(s => ({ id: s.id, name: s.name, member_count: s.member_count }));
     
     console.log("Raw Mailchimp segments response:", JSON.stringify(segmentsData, null, 2));
     console.log("Processed segments:", segments);
