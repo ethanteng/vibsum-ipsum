@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { canonical, channels, templateId } = req.body;
+  const { canonical, channels, templateId, selectedMailchimpSegment, selectedIntercomSegment } = req.body;
 
   if (!canonical || !channels || !Array.isArray(channels)) {
     return res.status(400).json({ error: "Missing canonical or channels array." });
@@ -38,18 +38,35 @@ export default async function handler(req, res) {
         return res.status(200).json({ results });
       }
 
-      // Resolve Mailchimp targets
-      const { resolvedSegments, unresolvedSegments } = await resolveMailchimpTargets(
-        mailchimpToken.accessToken,
-        process.env.MAILCHIMP_DC,
-        canonical
-      );
+      // Use selected segment or resolve automatically
+      let segmentTarget = null;
+      let resolvedSegments = [];
+      let unresolvedSegments = [];
 
-      // Check for unresolved targets
-      if (unresolvedSegments.length > 0) {
-        return res.status(400).json({
-          error: `Could not resolve segments: ${unresolvedSegments.join(", ")}`
-        });
+      if (selectedMailchimpSegment && selectedMailchimpSegment !== "everyone") {
+        // Use the selected segment
+        segmentTarget = { segment_opts: { saved_segment_id: selectedMailchimpSegment } };
+        resolvedSegments = [{ id: selectedMailchimpSegment }];
+      } else {
+        // Auto-resolve segments from the prompt
+        const resolved = await resolveMailchimpTargets(
+          mailchimpToken.accessToken,
+          process.env.MAILCHIMP_DC,
+          canonical
+        );
+        resolvedSegments = resolved.resolvedSegments;
+        unresolvedSegments = resolved.unresolvedSegments;
+
+        // Check for unresolved targets
+        if (unresolvedSegments.length > 0) {
+          return res.status(400).json({
+            error: `Could not resolve segments: ${unresolvedSegments.join(", ")}`
+          });
+        }
+
+        if (resolvedSegments.length > 0) {
+          segmentTarget = { segment_opts: { saved_segment_id: resolvedSegments[0].id } };
+        }
       }
 
       // Fetch template HTML if templateId is provided
@@ -79,7 +96,7 @@ export default async function handler(req, res) {
 
       const { campaignPayload, contentPayload, scheduled_time } = normalizeForMailchimp(
         canonical, 
-        resolvedSegments.length > 0 ? { segment_opts: { saved_segment_id: resolvedSegments[0].id } } : null,
+        segmentTarget,
         templateHtml
       );
 
@@ -158,9 +175,50 @@ export default async function handler(req, res) {
         appId: process.env.NEXT_PUBLIC_INTERCOM_APP_ID,
       });
 
+      // Add segment information for informational purposes
+      let segmentInfo = null;
+      if (selectedIntercomSegment && selectedIntercomSegment !== "everyone") {
+        segmentInfo = { selectedSegment: selectedIntercomSegment };
+      } else {
+        // Try to find the best matching segment from the prompt
+        try {
+          const segmentsRes = await fetch(
+            "https://api.intercom.io/tags",
+            {
+              headers: {
+                Authorization: `Bearer ${intercomToken}`,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+            }
+          );
+          
+          if (segmentsRes.ok) {
+            const segmentsData = await segmentsRes.json();
+            const segments = segmentsData.data || [];
+            
+            // Simple matching logic - could be improved with fuzzy search
+            const promptSegments = canonical.intercom?.audience?.segments || [];
+            const matchedSegment = segments.find(segment => 
+              promptSegments.some(promptSeg => 
+                segment.name.toLowerCase().includes(promptSeg.toLowerCase()) ||
+                promptSeg.toLowerCase().includes(segment.name.toLowerCase())
+              )
+            );
+            
+            if (matchedSegment) {
+              segmentInfo = { suggestedSegment: matchedSegment.name };
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching Intercom segments for info:', error);
+        }
+      }
+
       results.intercom = {
         status: "created",
         url: created.url,
+        segmentInfo,
       };
     } catch (err) {
       console.error("Intercom News error:", err);

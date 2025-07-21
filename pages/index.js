@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { applyTemplateToPreview } from "@/lib/extractMailchimpTemplate";
+import Fuse from "fuse.js";
 
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
@@ -23,6 +24,13 @@ export default function Home() {
   const [selectedTemplateHtml, setSelectedTemplateHtml] = useState("");
   const [showTemplatePreview, setShowTemplatePreview] = useState(false);
   const [loadingTemplateHtml, setLoadingTemplateHtml] = useState(false);
+  const [mailchimpSegments, setMailchimpSegments] = useState([]);
+  const [intercomSegments, setIntercomSegments] = useState([]);
+  const [selectedMailchimpSegment, setSelectedMailchimpSegment] = useState("everyone");
+  const [selectedIntercomSegment, setSelectedIntercomSegment] = useState("everyone");
+  const [loadingSegments, setLoadingSegments] = useState(false);
+  const [originalSelected, setOriginalSelected] = useState(null);
+  const [jsonViewKey, setJsonViewKey] = useState(0);
 
   // Fetch history on login/page load
   useEffect(() => {
@@ -41,12 +49,32 @@ export default function Home() {
     }
   }, [sessionStatus]);
 
-  // Fetch Mailchimp templates when user is authenticated
+  // Fetch Mailchimp templates and segments when user is authenticated
   useEffect(() => {
     if (sessionStatus === "authenticated") {
       fetchMailchimpTemplates();
+      fetchSegments();
     }
   }, [sessionStatus]);
+
+  // Ensure segments are loaded when needed
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && mailchimpSegments.length === 0) {
+      console.log("Segments empty, refetching...");
+      fetchSegments();
+    }
+  }, [sessionStatus, mailchimpSegments.length]);
+
+  // Monitor mailchimpSegments changes
+  useEffect(() => {
+    console.log("mailchimpSegments changed:", mailchimpSegments);
+    console.log("mailchimpSegments length:", mailchimpSegments.length);
+    if (mailchimpSegments.length > 0) {
+      console.log("First segment in state:", mailchimpSegments[0]);
+      console.log("First segment id:", mailchimpSegments[0]?.id);
+      console.log("First segment name:", mailchimpSegments[0]?.name);
+    }
+  }, [mailchimpSegments]);
 
   // Fetch template HTML when template is selected
   useEffect(() => {
@@ -102,6 +130,145 @@ export default function Home() {
     }
   };
 
+  // Find best matching segment for Mailchimp
+  const findBestMailchimpSegment = (promptSegments) => {
+    if (!promptSegments || promptSegments.length === 0 || mailchimpSegments.length === 0) {
+      return "everyone";
+    }
+
+    // Try exact matches first
+    for (const promptSegment of promptSegments) {
+      const exactMatch = mailchimpSegments.find(segment => 
+        segment.name.toLowerCase() === promptSegment.toLowerCase()
+      );
+      if (exactMatch) {
+        return exactMatch.id;
+      }
+    }
+
+    // Try partial matches
+    for (const promptSegment of promptSegments) {
+      const partialMatch = mailchimpSegments.find(segment => 
+        segment.name.toLowerCase().includes(promptSegment.toLowerCase()) ||
+        promptSegment.toLowerCase().includes(segment.name.toLowerCase())
+      );
+      if (partialMatch) {
+        return partialMatch.id;
+      }
+    }
+
+    // Try fuzzy matching with Fuse.js
+    const fuse = new Fuse(mailchimpSegments, { keys: ["name"], threshold: 0.4 });
+    for (const promptSegment of promptSegments) {
+      const fuzzyResults = fuse.search(promptSegment);
+      if (fuzzyResults.length > 0) {
+        return fuzzyResults[0].item.id;
+      }
+    }
+
+    return "everyone";
+  };
+
+  // Update the selected campaign data when segments change
+  const updateSelectedWithSegments = (newMailchimpSegment, newIntercomSegment) => {
+    if (!selected) return;
+
+    console.log("updateSelectedWithSegments called with:", { newMailchimpSegment, newIntercomSegment });
+    console.log("Current selected:", selected);
+    console.log("Available mailchimpSegments:", mailchimpSegments);
+
+    const updatedSelected = { ...selected };
+    
+    // Update Mailchimp segments
+    if (updatedSelected.channels?.includes("mailchimp") && updatedSelected.mailchimp?.audience) {
+      console.log("Processing Mailchimp segments...");
+      if (newMailchimpSegment !== "everyone") {
+        console.log("Looking for segment with ID:", newMailchimpSegment);
+        console.log("Available segments:", mailchimpSegments.map(s => ({ id: s.id, name: s.name })));
+        const selectedSegment = mailchimpSegments.find(s => s.id == newMailchimpSegment); // Use == for type coercion
+        console.log("Found selected segment:", selectedSegment);
+        if (selectedSegment) {
+          updatedSelected.mailchimp.audience.segments = [selectedSegment.name];
+          console.log("Updated Mailchimp segments to:", selectedSegment.name);
+        } else {
+          console.log("Selected segment not found in mailchimpSegments");
+        }
+      } else {
+        // When "everyone" is selected, clear the segments (target everyone)
+        updatedSelected.mailchimp.audience.segments = [];
+        console.log("Set Mailchimp segments to everyone (empty array)");
+      }
+    }
+
+    // Update Intercom segments (informational only)
+    if (updatedSelected.channels?.includes("intercom") && updatedSelected.intercom?.audience) {
+      if (newIntercomSegment !== "everyone") {
+        const selectedSegment = intercomSegments.find(s => s.id === newIntercomSegment);
+        if (selectedSegment) {
+          updatedSelected.intercom.audience.segments = [selectedSegment.name];
+          console.log("Updated Intercom segments to:", selectedSegment.name);
+        }
+      } else {
+        // When "everyone" is selected, clear the segments (target everyone)
+        updatedSelected.intercom.audience.segments = [];
+        console.log("Set Intercom segments to everyone (empty array)");
+      }
+    }
+
+    console.log("Final updatedSelected object:", updatedSelected);
+    console.log("Final mailchimp.audience.segments:", updatedSelected.mailchimp?.audience?.segments);
+    setSelected(updatedSelected);
+    setJsonViewKey(prev => prev + 1); // Force JSON view to re-render
+  };
+
+  // Fetch segments for both Mailchimp and Intercom
+  const fetchSegments = async () => {
+    setLoadingSegments(true);
+    try {
+      // Fetch Mailchimp segments
+      const mailchimpRes = await fetch(`/api/mailchimp/segments?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      if (mailchimpRes.ok) {
+        const mailchimpData = await mailchimpRes.json();
+        console.log("Response status:", mailchimpRes.status);
+        console.log("Response headers:", Object.fromEntries(mailchimpRes.headers.entries()));
+        console.log("Raw mailchimpData from API:", mailchimpData);
+        console.log("mailchimpData.segments:", mailchimpData.segments);
+        console.log("mailchimpData.segments type:", typeof mailchimpData.segments);
+        console.log("mailchimpData.segments length:", mailchimpData.segments?.length);
+        console.log("First segment:", mailchimpData.segments?.[0]);
+        console.log("Second segment:", mailchimpData.segments?.[1]);
+        setMailchimpSegments(mailchimpData.segments || []);
+        console.log("Setting mailchimpSegments to:", mailchimpData.segments);
+        console.log("Available mailchimpSegments:", mailchimpData.segments);
+      } else {
+        console.error("Failed to fetch Mailchimp segments:", await mailchimpRes.text());
+      }
+
+      // Fetch Intercom segments
+      const intercomRes = await fetch(`/api/intercom/segments?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      if (intercomRes.ok) {
+        const intercomData = await intercomRes.json();
+        setIntercomSegments(intercomData.segments || []);
+      } else {
+        console.error("Failed to fetch Intercom segments:", await intercomRes.text());
+      }
+    } catch (error) {
+      console.error("Error fetching segments:", error);
+    } finally {
+      setLoadingSegments(false);
+    }
+  };
+
   // Get the HTML to display in preview
   const getPreviewHtml = () => {
     if (!selected?.mailchimp?.html_body) {
@@ -144,25 +311,41 @@ export default function Home() {
       });
       const saveData = await saveRes.json();
       if (saveData.campaign) {
+        const parsedResult = typeof saveData.campaign.result === "string"
+          ? safeParseJson(saveData.campaign.result)
+          : saveData.campaign.result;
+        
         setHistory((h) => [
           {
             ...saveData.campaign,
-            result: typeof saveData.campaign.result === "string"
-              ? safeParseJson(saveData.campaign.result)
-              : saveData.campaign.result
+            result: parsedResult
           },
           ...h,
         ]);
-        setSelected(
-          typeof saveData.campaign.result === "string"
-            ? safeParseJson(saveData.campaign.result)
-            : saveData.campaign.result
-        );
+        setOriginalSelected(parsedResult);
+        setSelected(parsedResult);
+        
+        // Set best matching segment for Mailchimp
+        if (parsedResult.channels?.includes("mailchimp") && parsedResult.mailchimp?.audience?.segments) {
+          const bestSegment = findBestMailchimpSegment(parsedResult.mailchimp.audience.segments);
+          setSelectedMailchimpSegment(bestSegment);
+          // Update the selected data with the best segment
+          updateSelectedWithSegments(bestSegment, selectedIntercomSegment);
+        }
       } else {
         // fallback: just update local state
         const newEntry = { prompt, result: data.result };
         setHistory((h) => [newEntry, ...h]);
+        setOriginalSelected(data.result);
         setSelected(data.result);
+        
+        // Set best matching segment for Mailchimp
+        if (data.result.channels?.includes("mailchimp") && data.result.mailchimp?.audience?.segments) {
+          const bestSegment = findBestMailchimpSegment(data.result.mailchimp.audience.segments);
+          setSelectedMailchimpSegment(bestSegment);
+          // Update the selected data with the best segment
+          updateSelectedWithSegments(bestSegment, selectedIntercomSegment);
+        }
       }
       setStatus("");
     }
@@ -172,10 +355,16 @@ export default function Home() {
   const handleCreate = async (canonical, channels) => {
     setStatus(`Creating in ${channels.map(channel => channel.charAt(0).toUpperCase() + channel.slice(1)).join(", ")}...`);
     
-    // Include template ID if Mailchimp is selected and a template is chosen
+    // Include template ID and selected segments
     const requestBody = { canonical, channels };
     if (channels.includes("mailchimp") && selectedTemplateId) {
       requestBody.templateId = selectedTemplateId;
+    }
+    if (channels.includes("mailchimp")) {
+      requestBody.selectedMailchimpSegment = selectedMailchimpSegment;
+    }
+    if (channels.includes("intercom")) {
+      requestBody.selectedIntercomSegment = selectedIntercomSegment;
     }
     
     const res = await fetch("/api/create", {
@@ -202,6 +391,12 @@ export default function Home() {
         let successMessage;
         if (ch === "intercom") {
           successMessage = "Intercom News created.";
+          // Add segment information for Intercom
+          if (r.segmentInfo?.selectedSegment) {
+            successMessage += ` Target segment: ${r.segmentInfo.selectedSegment}`;
+          } else if (r.segmentInfo?.suggestedSegment) {
+            successMessage += ` Suggested segment: ${r.segmentInfo.suggestedSegment} (please confirm in Intercom)`;
+          }
         } else {
           if (status === "scheduled_successfully") {
             successMessage = `${channelName} campaign created and scheduled successfully.`;
@@ -209,6 +404,11 @@ export default function Home() {
             successMessage = `${channelName} campaign created (not scheduled).`;
           } else {
             successMessage = `${channelName} campaign created.`;
+          }
+          // Add segment information for Mailchimp
+          if (r.resolvedSegments?.length > 0) {
+            const segmentNames = r.resolvedSegments.map(s => s.name || s.id).join(", ");
+            successMessage += ` Target segment: ${segmentNames}`;
           }
         }
         if (url) successMessage += ` ${url}`;
@@ -286,7 +486,38 @@ export default function Home() {
                     ? "bg-indigo-100 font-semibold"
                     : "hover:bg-gray-100"
                 }`}
-                onClick={() => setSelected(result)}
+                onClick={() => {
+                  setOriginalSelected(result);
+                  setSelected(result);
+                  
+                  // Find best matching segments for the selected campaign
+                  if (result.channels?.includes("mailchimp") && result.mailchimp?.audience?.segments) {
+                    // Ensure segments are loaded before finding best match
+                    if (mailchimpSegments.length > 0) {
+                      const bestMailchimpSegment = findBestMailchimpSegment(result.mailchimp.audience.segments);
+                      setSelectedMailchimpSegment(bestMailchimpSegment);
+                      console.log("History selection - Found best segment:", bestMailchimpSegment);
+                    } else {
+                      console.log("History selection - Segments not loaded yet, refetching...");
+                      // Refetch segments if they're not available
+                      fetchSegments().then(() => {
+                        // After segments are loaded, find the best match
+                        const bestMailchimpSegment = findBestMailchimpSegment(result.mailchimp.audience.segments);
+                        setSelectedMailchimpSegment(bestMailchimpSegment);
+                        console.log("History selection - After refetch, found best segment:", bestMailchimpSegment);
+                      });
+                    }
+                  } else {
+                    setSelectedMailchimpSegment("everyone");
+                  }
+                  
+                  if (result.channels?.includes("intercom") && result.intercom?.audience?.segments) {
+                    // For Intercom, we could implement similar logic if needed
+                    setSelectedIntercomSegment("everyone");
+                  } else {
+                    setSelectedIntercomSegment("everyone");
+                  }
+                }}
                 title={prompt}
               >
                 {prompt.slice(0, 40)}...
@@ -341,6 +572,76 @@ export default function Home() {
               Refresh Templates
             </button>
           </div>
+
+          {/* Segment Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Mailchimp Segment Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mailchimp Target Segment
+              </label>
+              {loadingSegments ? (
+                <div className="text-sm text-gray-500">Loading segments...</div>
+              ) : mailchimpSegments.length > 0 ? (
+                                  <select
+                    value={selectedMailchimpSegment}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      console.log("Mailchimp segment changed to:", newValue);
+                      setSelectedMailchimpSegment(newValue);
+                      console.log("About to call updateSelectedWithSegments with:", newValue, selectedIntercomSegment);
+                      updateSelectedWithSegments(newValue, selectedIntercomSegment);
+                      console.log("updateSelectedWithSegments called");
+                    }}
+                    className="w-full border border-gray-300 rounded p-2 text-sm"
+                  >
+                  {mailchimpSegments.map((segment) => (
+                    <option key={segment.id} value={segment.id}>
+                      {segment.name} {segment.member_count ? `(${segment.member_count} members)` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  No segments found. Will use "Everyone".
+                </div>
+              )}
+            </div>
+
+            {/* Intercom Segment Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Intercom Target Segment
+              </label>
+              {loadingSegments ? (
+                <div className="text-sm text-gray-500">Loading segments...</div>
+              ) : intercomSegments.length > 0 ? (
+                                  <select
+                    value={selectedIntercomSegment}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      console.log("Intercom segment changed to:", newValue);
+                      setSelectedIntercomSegment(newValue);
+                      updateSelectedWithSegments(selectedMailchimpSegment, newValue);
+                    }}
+                    className="w-full border border-gray-300 rounded p-2 text-sm"
+                  >
+                  {intercomSegments.map((segment) => (
+                    <option key={segment.id} value={segment.id}>
+                      {segment.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  No segments found. Will use "Everyone".
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Note: This is for reference only. Please confirm the correct segment in Intercom.
+              </p>
+            </div>
+          </div>
           
           <div className="flex items-center justify-between mt-2">
             <div>
@@ -389,8 +690,11 @@ export default function Home() {
                 <h3 className="text-lg font-semibold mb-2">Mailchimp Campaign</h3>
                 <p className="text-sm mb-2">
                   <strong>To:</strong>{" "}
-                  {selected.mailchimp.audience?.segments?.join(", ") ||
-                  "All subscribers"
+                  {selectedMailchimpSegment !== "everyone" 
+                    ? mailchimpSegments.find(s => s.id === selectedMailchimpSegment)?.name || "Selected segment"
+                    : (selected.mailchimp.audience?.segments?.length > 0 
+                        ? selected.mailchimp.audience.segments.join(", ") 
+                        : "Everyone")
                   }
                   <br />
                   <strong>From:</strong> {selected.mailchimp.from_name} ({selected.mailchimp.reply_to})
@@ -521,7 +825,10 @@ export default function Home() {
         {selected && showJson && (
           <div className="mt-6 bg-white shadow border border-gray-200 p-4 rounded">
             <h3 className="text-lg font-semibold mb-2">JSON View</h3>
-            <JsonView data={selected} />
+            <JsonView 
+              data={selected} 
+              key={jsonViewKey} // Force re-render when data changes
+            />
           </div>
         )}
 
