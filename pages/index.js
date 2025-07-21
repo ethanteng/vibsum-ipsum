@@ -617,39 +617,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              {/* Intercom Target Segment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Intercom Target Segment
-                </label>
-                {loadingSegments ? (
-                  <div className="text-sm text-gray-500">Loading segments...</div>
-                ) : intercomSegments.length > 0 ? (
-                  <select
-                    value={selectedIntercomSegment}
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      console.log("Intercom segment changed to:", newValue);
-                      setSelectedIntercomSegment(newValue);
-                      updateSelectedWithSegments(selectedMailchimpSegment, newValue);
-                    }}
-                    className="w-full border border-gray-300 rounded p-2 text-sm"
-                  >
-                    {intercomSegments.map((segment) => (
-                      <option key={segment.id} value={segment.id}>
-                        {segment.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    No segments found. Will use "Everyone".
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Note: This is for reference only. Please confirm the correct segment in Intercom.
-                </p>
-              </div>
             </div>
           )}
           
