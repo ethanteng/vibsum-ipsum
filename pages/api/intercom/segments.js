@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 
     // Fetch segments from Intercom
     const segmentsRes = await fetch(
-      "https://api.intercom.io/tags",
+      "https://api.intercom.io/segments",
       {
         headers: {
           Authorization: `Bearer ${intercomToken}`,
@@ -34,16 +34,17 @@ export default async function handler(req, res) {
     );
 
     if (!segmentsRes.ok) {
-      throw new Error(`Failed to fetch Intercom tags: ${await segmentsRes.text()}`);
+      throw new Error(`Failed to fetch Intercom segments: ${await segmentsRes.text()}`);
     }
 
     const segmentsData = await segmentsRes.json();
-    const segments = segmentsData.data || [];
+    // Intercom segments API returns { type: 'segment.list', segments: [...] }
+    const segments = segmentsData.segments || [];
 
     // Add "Everyone" option at the beginning
     const segmentsWithEveryone = [
       { id: "everyone", name: "Everyone" },
-      ...segments.map(tag => ({ id: tag.id, name: tag.name }))
+      ...segments.map(segment => ({ id: segment.id, name: segment.name }))
     ];
 
     return res.status(200).json({ segments: segmentsWithEveryone });
