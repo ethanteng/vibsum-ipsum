@@ -1,13 +1,7 @@
-import Image from 'next/image';
-
-export default function Logo({ className = "h-8 w-auto" }) {
+export default function Logo() {
   return (
-    <Image
-      src="/vybescript-logo.svg"
-      alt="Vybescript"
-      width={160}
-      height={32}
-      className={className}
-    />
+    <span style={{ fontWeight: 'bold', fontSize: '1.5rem', letterSpacing: '0.05em' }}>
+      Vybescript
+    </span>
   );
 } 
