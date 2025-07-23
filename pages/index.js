@@ -1,5 +1,5 @@
 // pages/index.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import EmailPreview from "@/components/EmailPreview";
@@ -33,6 +33,7 @@ export default function Home() {
   const [jsonViewKey, setJsonViewKey] = useState(0);
   // Add state for advanced options and preview mode
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const mainContentRef = useRef(null);
 
   // Fetch history on login/page load
   useEffect(() => {
@@ -316,36 +317,40 @@ export default function Home() {
         const parsedResult = typeof saveData.campaign.result === "string"
           ? safeParseJson(saveData.campaign.result)
           : saveData.campaign.result;
-        
-        setHistory((h) => [
-          {
-            ...saveData.campaign,
-            result: parsedResult
-          },
-          ...h,
-        ]);
+        const newPromptObj = {
+          ...saveData.campaign,
+          result: parsedResult
+        };
+        setHistory((h) => {
+          const newHistory = [newPromptObj, ...h];
+          setSelected({ ...parsedResult, _historyId: newPromptObj.id, _prompt: newPromptObj.prompt, _createdAt: newPromptObj.createdAt });
+          return newHistory;
+        });
         setOriginalSelected(parsedResult);
-        setSelected(parsedResult);
-        
+        if (mainContentRef.current) {
+          mainContentRef.current.scrollIntoView({ behavior: "smooth" });
+        }
         // Set best matching segment for Mailchimp
         if (parsedResult.channels?.includes("mailchimp") && parsedResult.mailchimp?.audience?.segments) {
           const bestSegment = findBestMailchimpSegment(parsedResult.mailchimp.audience.segments);
           setSelectedMailchimpSegment(bestSegment);
-          // Update the selected data with the best segment
           updateSelectedWithSegments(bestSegment, selectedIntercomSegment);
         }
       } else {
         // fallback: just update local state
         const newEntry = { prompt, result: data.result };
-        setHistory((h) => [newEntry, ...h]);
+        setHistory((h) => {
+          const newHistory = [newEntry, ...h];
+          setSelected({ ...data.result, _historyId: undefined, _prompt: prompt, _createdAt: undefined });
+          return newHistory;
+        });
         setOriginalSelected(data.result);
-        setSelected(data.result);
-        
-        // Set best matching segment for Mailchimp
+        if (mainContentRef.current) {
+          mainContentRef.current.scrollIntoView({ behavior: "smooth" });
+        }
         if (data.result.channels?.includes("mailchimp") && data.result.mailchimp?.audience?.segments) {
           const bestSegment = findBestMailchimpSegment(data.result.mailchimp.audience.segments);
           setSelectedMailchimpSegment(bestSegment);
-          // Update the selected data with the best segment
           updateSelectedWithSegments(bestSegment, selectedIntercomSegment);
         }
       }
@@ -488,57 +493,59 @@ export default function Home() {
           </p>
         )}
         <ul className="space-y-2 flex-1 overflow-y-auto">
-          {history.map(({ prompt, result }, i) => (
-            <li key={i}>
-              <button
-                className={`w-full text-left px-3 py-2 rounded ${
-                  selected === result
-                    ? "bg-indigo-100 font-semibold"
-                    : "hover:bg-gray-100"
-                }`}
-                onClick={() => {
-                  setOriginalSelected(result);
-                  setSelected(result);
+          {history.map((entry, i) => {
+            const { prompt, result, id, createdAt } = entry;
+            const isSelected = selected && selected._historyId === id;
+            return (
+              <li key={id || i}>
+                <button
+                  className={`w-full text-left px-3 py-2 rounded ${
+                    isSelected ? "bg-indigo-100 font-semibold" : "hover:bg-gray-100"
+                  }`}
+                  onClick={() => {
+                    setOriginalSelected(result);
+                    setSelected({ ...result, _historyId: id, _prompt: prompt, _createdAt: createdAt });
                   
-                  // Find best matching segments for the selected campaign
-                  if (result.channels?.includes("mailchimp") && result.mailchimp?.audience?.segments) {
-                    // Ensure segments are loaded before finding best match
-                    if (mailchimpSegments.length > 0) {
-                      const bestMailchimpSegment = findBestMailchimpSegment(result.mailchimp.audience.segments);
-                      setSelectedMailchimpSegment(bestMailchimpSegment);
-                      console.log("History selection - Found best segment:", bestMailchimpSegment);
-                    } else {
-                      console.log("History selection - Segments not loaded yet, refetching...");
-                      // Refetch segments if they're not available
-                      fetchSegments().then(() => {
-                        // After segments are loaded, find the best match
+                    // Find best matching segments for the selected campaign
+                    if (result.channels?.includes("mailchimp") && result.mailchimp?.audience?.segments) {
+                      // Ensure segments are loaded before finding best match
+                      if (mailchimpSegments.length > 0) {
                         const bestMailchimpSegment = findBestMailchimpSegment(result.mailchimp.audience.segments);
                         setSelectedMailchimpSegment(bestMailchimpSegment);
-                        console.log("History selection - After refetch, found best segment:", bestMailchimpSegment);
-                      });
+                        console.log("History selection - Found best segment:", bestMailchimpSegment);
+                      } else {
+                        console.log("History selection - Segments not loaded yet, refetching...");
+                        // Refetch segments if they're not available
+                        fetchSegments().then(() => {
+                          // After segments are loaded, find the best match
+                          const bestMailchimpSegment = findBestMailchimpSegment(result.mailchimp.audience.segments);
+                          setSelectedMailchimpSegment(bestMailchimpSegment);
+                          console.log("History selection - After refetch, found best segment:", bestMailchimpSegment);
+                        });
+                      }
+                    } else {
+                      setSelectedMailchimpSegment("everyone");
                     }
-                  } else {
-                    setSelectedMailchimpSegment("everyone");
-                  }
-                  
-                  if (result.channels?.includes("intercom") && result.intercom?.audience?.segments) {
-                    // For Intercom, we could implement similar logic if needed
-                    setSelectedIntercomSegment("everyone");
-                  } else {
-                    setSelectedIntercomSegment("everyone");
-                  }
-                }}
-                title={prompt}
-              >
-                {prompt.slice(0, 40)}...
-              </button>
-            </li>
-          ))}
+                    
+                    if (result.channels?.includes("intercom") && result.intercom?.audience?.segments) {
+                      // For Intercom, we could implement similar logic if needed
+                      setSelectedIntercomSegment("everyone");
+                    } else {
+                      setSelectedIntercomSegment("everyone");
+                    }
+                  }}
+                  title={prompt}
+                >
+                  {prompt.slice(0, 40)}...
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-6 overflow-y-auto mt-16">
+      <main ref={mainContentRef} className="flex-1 p-6 overflow-y-auto mt-16">
         {/* Prompt Box */}
         <div className="bg-white shadow border border-gray-200 p-4 rounded mb-6">
           <h1 className="text-2xl font-bold mb-2">Create Your Multi-Channel Campaign</h1>
@@ -670,7 +677,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Mailchimp */}
-            {selected.channels.includes("mailchimp") && (
+            {Array.isArray(selected.channels) && selected.channels.includes("mailchimp") && (
               <section className="border border-gray-200 rounded p-4 bg-white">
                 <h3 className="text-lg font-semibold mb-2">Mailchimp Campaign</h3>
                 <p className="text-sm mb-2">
@@ -737,7 +744,7 @@ export default function Home() {
             )}
 
             {/* Intercom */}
-            {selected.channels.includes("intercom") && (
+            {Array.isArray(selected.channels) && selected.channels.includes("intercom") && (
               <section className="space-y-6">
                 {/* News */}
                 <div className="border border-gray-200 rounded p-4 bg-white">
