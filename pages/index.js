@@ -496,8 +496,15 @@ export default function Home() {
           {history.map((entry, i) => {
             const { prompt, result, id, createdAt } = entry;
             const isSelected = selected && selected._historyId === id;
+            // Use _createdAt from selected if available, else createdAt from entry
+            const timestamp = createdAt || (result && result._createdAt) || (selected && selected._createdAt);
             return (
               <li key={id || i}>
+                {timestamp && (
+                  <div className="text-xs text-gray-500 mb-1">
+                    {new Date(timestamp).toLocaleString()}
+                  </div>
+                )}
                 <button
                   className={`w-full text-left px-3 py-2 rounded ${
                     isSelected ? "bg-indigo-100 font-semibold" : "hover:bg-gray-100"
