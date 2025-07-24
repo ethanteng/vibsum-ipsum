@@ -2,6 +2,7 @@
   "name": "vibsum-ipsum",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "prisma generate && next dev",
     "build": "prisma generate && next build",
@@ -17,6 +18,7 @@
     "markdown-it": "^14.1.0",
     "next": "15.3.5",
     "next-auth": "^4.24.11",
+    "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
     "prisma": "^6.12.0",

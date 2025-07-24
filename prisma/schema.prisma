@@ -11,12 +11,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  email          String   @unique
+  password       String?
+  name           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastIngestedAt DateTime? // Track last content ingestion
 
   // OAuth tokens
   mailchimpToken    MailchimpToken?
@@ -55,4 +56,24 @@ model Campaign {
   prompt    String
   result    String   // JSON string of the generated campaign
   createdAt DateTime @default(now())
+} 
+
+model MailchimpContent {
+  id         String   @id @default(uuid())
+  userId     String
+  campaignId String
+  subject    String
+  body       String
+  sentAt     DateTime
+  embedding  Bytes
+}
+
+model IntercomContent {
+  id         String   @id @default(uuid())
+  userId     String
+  contentId  String
+  title      String
+  body       String
+  sentAt     DateTime
+  embedding  Bytes
 } 

@@ -12,6 +12,8 @@ export default function Admin() {
   const [showJson, setShowJson] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [refreshResult, setRefreshResult] = useState(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -45,6 +47,20 @@ export default function Admin() {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   };
 
+  async function handleRefresh() {
+    setRefreshLoading(true);
+    setRefreshResult(null);
+    try {
+      const res = await fetch('/api/admin/ingest', { method: 'POST' });
+      const data = await res.json();
+      setRefreshResult(data);
+    } catch (e) {
+      setRefreshResult({ error: e.message });
+    } finally {
+      setRefreshLoading(false);
+    }
+  }
+
   if (status === "loading" || loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
 
@@ -53,6 +69,14 @@ export default function Admin() {
       <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
       <div className="text-gray-700 mb-8 text-lg">Total users: <b>{users.length}</b></div>
       <div className="space-y-6">
+        <button onClick={handleRefresh} disabled={refreshLoading} style={{ marginBottom: 16 }}>
+          {refreshLoading ? 'Refreshing...' : 'Refresh Content'}
+        </button>
+        {refreshResult && (
+          <pre style={{ background: '#f5f5f5', padding: 8, borderRadius: 4 }}>
+            {JSON.stringify(refreshResult, null, 2)}
+          </pre>
+        )}
         {users.map((user) => (
           <div key={user.id} className="bg-white rounded shadow p-6">
             <div className="flex justify-between items-center">
