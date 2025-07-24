@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { signIn } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Logo from "@/components/Logo";
+import Image from "next/image";
 
 export default function Connections() {
   const { data: session, status, update } = useSession();
@@ -68,6 +69,87 @@ export default function Connections() {
     window.location.href = '/api/auth/intercom';
   };
 
+  // List of all integrations (logo filename without extension, display name, logo extension)
+  const integrations = [
+    { key: "Mailchimp", name: "Mailchimp", logo: "Mailchimp.jpg" },
+    { key: "Intercom", name: "Intercom", logo: "Intercom.png" },
+    { key: "Airtable", name: "Airtable", logo: "Airtable.png" },
+    { key: "Figma", name: "Figma", logo: "Figma.png" },
+    { key: "Google", name: "Google", logo: "Google.jpg" },
+    { key: "Hubspot", name: "Hubspot", logo: "Hubspot.jpg" },
+    { key: "Notion", name: "Notion", logo: "Notion.jpg" },
+    { key: "Salesforce", name: "Salesforce", logo: "Salesforce.jpg" },
+    { key: "Webflow", name: "Webflow", logo: "Webflow.jpg" },
+    { key: "Wix", name: "Wix", logo: "Wix.jpg" },
+  ];
+
+  // Helper to render a connection box
+  function renderConnectionBox(integration) {
+    const isMailchimp = integration.key === "Mailchimp";
+    const isIntercom = integration.key === "Intercom";
+    const isConnected = isMailchimp
+      ? session?.connections?.mailchimp
+      : isIntercom
+      ? session?.connections?.intercom
+      : false;
+    return (
+      <div
+        key={integration.key}
+        className="bg-white rounded-lg shadow border border-gray-200 p-6 flex flex-col items-center justify-between min-h-[200px] h-full"
+      >
+        <div className="flex flex-col items-center w-full flex-1">
+          <Image
+            src={`/logos/${integration.logo}`}
+            alt={integration.name + ' logo'}
+            width={48}
+            height={48}
+            className="rounded mb-2 object-contain"
+            style={{ maxHeight: 48, maxWidth: 48 }}
+          />
+          <div className="flex items-center space-x-2 mb-4 mt-2">
+            <h2 className="text-lg font-semibold text-gray-900 text-center">{integration.name}</h2>
+            <div
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                isConnected
+                  ? "bg-green-100 text-green-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {isConnected ? "Connected" : "Not Connected"}
+            </div>
+          </div>
+        </div>
+        {/* No blurbs/descriptions for any box */}
+        <div className="w-full flex justify-center mt-auto">
+          {isMailchimp || isIntercom ? (
+            isConnected ? (
+              <button
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 w-full"
+                disabled
+              >
+                Connected ✓
+              </button>
+            ) : (
+              <button
+                onClick={isMailchimp ? handleConnectMailchimp : isIntercom ? handleConnectIntercom : undefined}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full"
+              >
+                {isMailchimp ? "Connect Mailchimp" : "Connect Intercom"}
+              </button>
+            )
+          ) : (
+            <button
+              className="bg-gray-200 text-gray-600 px-4 py-2 rounded w-full cursor-not-allowed"
+              disabled
+            >
+              Not Connected
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Header */}
@@ -106,74 +188,8 @@ export default function Connections() {
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mailchimp Connection */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Mailchimp</h2>
-                <div className={`px-3 py-1 rounded-full text-sm ${
-                  session?.connections?.mailchimp 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                  {session?.connections?.mailchimp ? "Connected" : "Not Connected"}
-                </div>
-              </div>
-              
-              <p className="text-gray-600 mb-4">
-                Connect your Mailchimp account to create campaigns directly from Vybescript.
-              </p>
-              
-              {session?.connections?.mailchimp ? (
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  disabled
-                >
-                  Connected ✓
-                </button>
-              ) : (
-                <button
-                  onClick={handleConnectMailchimp}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Connect Mailchimp
-                </button>
-              )}
-            </div>
-
-            {/* Intercom Connection */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Intercom</h2>
-                <div className={`px-3 py-1 rounded-full text-sm ${
-                  session?.connections?.intercom 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                  {session?.connections?.intercom ? "Connected" : "Not Connected"}
-                </div>
-              </div>
-              
-              <p className="text-gray-600 mb-4">
-                Connect your Intercom account to create news, posts, and banners directly from Vybescript.
-              </p>
-              
-              {session?.connections?.intercom ? (
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  disabled
-                >
-                  Connected ✓
-                </button>
-              ) : (
-                <button
-                  onClick={handleConnectIntercom}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Connect Intercom
-                </button>
-              )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {integrations.map(renderConnectionBox)}
           </div>
 
           <div className="mt-8 text-center">
