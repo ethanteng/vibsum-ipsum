@@ -71,7 +71,7 @@ model MailchimpContent {
 model IntercomContent {
   id         String   @id @default(uuid())
   userId     String
-  contentId  String
+  contentId  String   @unique
   title      String
   body       String
   sentAt     DateTime
